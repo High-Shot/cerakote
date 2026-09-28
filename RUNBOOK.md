@@ -4,7 +4,7 @@ Runs Monday and Thursday at 08:45 CT as a scheduled task, after the two data pip
 
 | Time (CT, Mon + Thu) | Task | Repo it updates |
 |---|---|---|
-| 06:30 | INTL health tracker run (account health, cases, stock, Q4 projection) | High-Shot/INTL |
+| 06:30 | INTL health tracker run (account health, cases, stock, Q4 projection), labeled with the reporting week | High-Shot/INTL |
 | 07:00 | NIC sales tracker run (week ending last Sunday; Thursday re-runs it with settled sessions + NTB) | High-Shot/NIC |
 | 08:45 | **This runbook**: budget read, spend pull, site build, publish | High-Shot/cerakote |
 
@@ -22,8 +22,8 @@ cd cerakote
 Note the latest commit date of NIC and INTL (`git -C ../NIC log -1 --format=%ci`). If either is older than today, the pipeline run has not pushed yet: build anyway and say so in the summary.
 
 ## 2. Pacing window
-THROUGH = today minus 2 days (Monday -> Saturday, Thursday -> Tuesday). Yesterday's spend is still settling at 9 AM, the day before is not.
-MONTH = the month of THROUGH. If THROUGH falls in a new month and last month's `data/pacing/<last month>.json` has `through` before its last day, also redo last month through its last day (steps 3-4) so every month closes on its full spend.
+NIC weeks run Monday to Sunday; the week is reviewed on Thursday. THROUGH = the Sunday that just ended (`date -d 'last sunday' +%F`), on both runs: Monday builds it, Thursday re-pulls the same window after attribution settles.
+MONTH = the month of THROUGH. If the reporting week crosses into a new month, also redo last month through its last day (steps 3-4) so every month closes on its full spend, and pace the new month from the 1st through THROUGH.
 
 ## 3. Budgets (Google Sheet NIC_Monthly_Budgets, id `1v5zGlPoNPcl0qKaxbsNyyfMfDvIpJSNkJWZuSYmkYYI`)
 `mcp__Google_Drive__read_file_content` on that id. Find the tab for MONTH: the tab name is the month's full name or its first 3-4 letters (July, August, Sept, Oct ...). Read column C ("Total ... Budget") for each Sales Channel row. The tab's header row may carry a stale month name in column C (the Sept tab says "Total August Budget"); go by the tab name, not the header.
