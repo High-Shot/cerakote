@@ -1,54 +1,54 @@
 {
  "month": "2026-09",
- "through": "2026-09-26",
+ "through": "2026-09-27",
  "pulled_at": "2026-09-28",
  "channels": {
   "CC_US": {
-   "spend": 117565.23,
+   "spend": 121795.77,
    "source": "si"
   },
   "CC_CA": {
-   "spend": 13849.26,
+   "spend": 14485.09,
    "source": "si"
   },
   "CC_UK": {
-   "spend": 5738.03,
-   "source": "si"
-  },
-  "CC_AUS": {
-   "spend": 2297.37,
+   "spend": 5801.0,
    "source": "si"
   },
   "CC_DE": {
-   "spend": 2387.02,
+   "spend": 2581.46,
    "source": "si"
   },
   "CC_FR": {
-   "spend": 3084.69,
-   "source": "si"
-  },
-  "CC_ES": {
-   "spend": 1662.31,
+   "spend": 3228.37,
    "source": "si"
   },
   "CC_IT": {
-   "spend": 770.67,
+   "spend": 841.15,
+   "source": "si"
+  },
+  "CC_ES": {
+   "spend": 1711.14,
    "source": "si"
   },
   "CC_NL": {
-   "spend": 236.02,
+   "spend": 254.31,
    "source": "si"
   },
-  "CC_SA": {
-   "spend": 370.8,
-   "source": "h10"
+  "CC_AUS": {
+   "spend": 2409.84,
+   "source": "si"
   },
   "CL_US": {
-   "spend": 3809.15,
+   "spend": 3837.48,
    "source": "h10"
   },
   "PP_US": {
-   "spend": 3642.79,
+   "spend": 3680.7,
+   "source": "h10"
+  },
+  "CC_SA": {
+   "spend": 370.8,
    "source": "h10"
   }
  },
