@@ -278,3 +278,12 @@ if __name__ == '__main__':
     build_health()
     build_inventory()
     build_root()
+    sys.path.insert(0, os.path.join(ROOT, 'scripts'))
+    import lock
+    if lock.enabled():
+        stuck = lock.encrypt_site([(os.path.join(ROOT, p, 'index.html'), t) for p, t in PAGES],
+                                  [os.path.join(ROOT, 'inventory', 'files')])
+        if stuck:
+            sys.exit('plain download files left behind; delete them before publishing')
+    else:
+        print('  lock OFF: pages are published unencrypted (run scripts/lock.py setup to turn it on)')

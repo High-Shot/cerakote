@@ -56,6 +56,9 @@ python3 scripts/build.py --nic ../NIC --intl ../INTL
 ```
 Then check: open each of sales/, health/, inventory/ in Playwright (`python3 -m http.server` from /home/claude, pages under /cerakote/), no console errors, no horizontal scroll at 390 px. The Sales GLOBAL view must show the pacing table with the Last 7 days column. The Month view must say "exact totals": it reads NIC `data/periods/`, written by the NIC run step 4b; without it the view falls back to prorated weeks labeled "est.". Out-of-stock chips come from the latest INTL q4 file.
 
+## 5b. Password lock
+`scripts/lock.py` encrypts every page and every file under inventory/files/ on each build when `config/lock.json` exists (build.py calls it; openssl CLI only, no pip installs). The build needs no password: it uses the public key in lock.json. Plain download files must not be pushed: build.py exits if it cannot delete them (the Mac connected-folder shell cannot delete; build in the cloud clone or run `git rm` from osascript). Status: `python3 scripts/lock.py status`. Barcus sets or changes the password on his Mac with `python3 scripts/lock.py setup`; never set it from a session.
+
 ## 6. Publish (from the Mac)
 The cloud proxy blocks pushes to repos that are not authorized for the session. Publish from the Mac:
 1. `git add -A && git commit -m "Refresh <date>"` in the cloud clone, then `git format-patch -1 -o /mnt/user-data/outputs/cerakote-patch/`.
