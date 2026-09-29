@@ -15,6 +15,7 @@
   function spark(w){var mx=Math.max.apply(null,w)||1,W=112,H=22,n=w.length,bw=W/n;var s='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" style="display:block">';
     for(var i=0;i<n;i++){var h=Math.max(1,w[i]/mx*(H-2));s+='<rect x="'+(i*bw+0.5).toFixed(1)+'" y="'+(H-h).toFixed(1)+'" width="'+(bw-1.5).toFixed(1)+'" height="'+h.toFixed(1)+'" rx="1" fill="var(--accent)" opacity="0.75"><title>wk '+(i+1)+': '+fmt(w[i])+' u</title></rect>'}
     return s+'</svg>'}
+  function inb(r){if(!r.inbound_known)return '?';if(r.inbound_inferred&&!r.inbound)return '<span class="sub" title="No FBA record in Helium10 for this SKU: Amazon holds nothing on hand or in transit. SKUs with a shipment on the way keep their record.">0</span>';return fmt(r.inbound)}
   function snap(){return S[idx]}
   function rowsIn(){var d=snap();return d.rows.filter(function(r){return acct==='ALL'||r.account===acct||(acct.indexOf('BRAND:')===0&&r.brand===acct.slice(6))})}
 
@@ -52,7 +53,7 @@
     $('lost-total').innerHTML='Lost to date, estimate: <b>'+usd(tot)+'</b> &middot; '+fmt(u)+' units across '+live.length+' products'+(hold.length?' &middot; plus '+usd(th)+' on '+hold.length+' listing'+(hold.length>1?'s':'')+' on hold (removed/restricted, not a stock problem)':'');
     $('lost-body').innerHTML=rs.length?rs.map(function(r){return '<tr><td><div class="prod">'+esc(r.name)+(r.blocked?' <span class="badge badge-INFO" title="'+esc(r.blocked)+'">Hold</span>':'')+'</div><div class="sub"><a href="'+amz(mk(r),r.asin)+'" target="_blank" rel="noopener">'+r.asin+'</a> · '+esc(r.sku||'')+'</div>'+(r.blocked?'<div class="reason">'+esc(r.blocked)+'</div>':'')+'</td>'+
       '<td class="sub">'+esc(r.label)+'</td><td class="age" title="'+esc(r.oos_basis||'')+'">'+md(r.oos_start)+'</td><td class="num">'+fmt(r.oos_days)+'</td><td class="num">'+fmt(r.base_vel,1)+'</td><td class="num">'+(r.price_usd?'$'+fmt(r.price_usd,2):'—')+'</td>'+
-      '<td class="num">'+fmt(r.lost_units)+'</td><td class="num lost-amt">'+usd(r.lost_usd)+'</td><td class="num">'+(r.inbound_known?fmt(r.inbound):'?')+'</td><td class="num">'+(r.blocked?'<span class="sub">hold</span>':fmt(r.ship_now))+'</td></tr>'}).join(''):'<tr><td colspan="10" class="empty">Nothing out of stock in this view.</td></tr>';}
+      '<td class="num">'+fmt(r.lost_units)+'</td><td class="num lost-amt">'+usd(r.lost_usd)+'</td><td class="num">'+inb(r)+'</td><td class="num">'+(r.blocked?'<span class="sub">hold</span>':fmt(r.ship_now))+'</td></tr>'}).join(''):'<tr><td colspan="10" class="empty">Nothing out of stock in this view.</td></tr>';}
 
   function ship(){var d=snap(),rs=rowsIn().filter(function(r){return !r.blocked}),today=d.as_of,dates={},accts=[];
     rs.forEach(function(r){r.schedule.forEach(function(s){var k=s.ship_by<=today?'NOW':s.ship_by;dates[k]=dates[k]||{};dates[k][r.label]=(dates[k][r.label]||0)+s.units;if(accts.indexOf(r.label)<0)accts.push(r.label)})});
@@ -70,7 +71,7 @@
     $('prod-body').innerHTML=rs.length?rs.map(function(r){var nx=r.schedule.length?r.schedule[0]:null,ev=r.event_index||{};
       function ix(v){return v==null?'—':'<span style="color:'+(v>=1.3?'var(--accent)':v<0.8?'var(--dim)':'var(--text2)')+'">'+v.toFixed(2)+'x</span>'}
       return '<tr><td>'+badge(r)+'</td><td><div class="prod">'+esc(r.name)+'</div><div class="sub"><a href="'+amz(mk(r),r.asin)+'" target="_blank" rel="noopener">'+r.asin+'</a> · '+esc(r.sku||'')+' · '+esc(r.index_basis)+'</div></td>'+
-      '<td class="sub">'+esc(r.label)+(r.pooled?'<div class="sub">'+r.markets.join(' ')+'</div>':'')+'</td><td class="num">'+fmt(r.available)+'</td><td class="num">'+(r.inbound_known?fmt(r.inbound):'?')+'</td>'+
+      '<td class="sub">'+esc(r.label)+(r.pooled?'<div class="sub">'+r.markets.join(' ')+'</div>':'')+'</td><td class="num">'+fmt(r.available)+'</td><td class="num">'+inb(r)+'</td>'+
       '<td class="num" title="raw 30d avg '+fmt(r.raw_vel30,1)+'/day; '+r.instock_days+' in-stock days used">'+fmt(r.base_vel,1)+(r.low_sample?'<div class="sub" style="color:var(--amber)">'+r.instock_days+'d data</div>':'')+(Math.abs(r.base_vel-r.raw_vel30)>0.15*r.base_vel?'<div class="sub">raw '+fmt(r.raw_vel30,1)+'</div>':'')+'</td>'+
       '<td class="num" title="days of forecast demand covered by available / available + inbound">'+fmt(r.cover_avail)+'d<div class="sub">'+fmt(r.cover_total)+'d w/ inb</div></td>'+
       '<td class="num">'+fmt(r.floor_units)+'</td><td class="num">'+fmt(r.target_units)+'</td><td class="num" style="font-weight:700;color:'+(r.ship_now&&!r.blocked?'var(--orange)':'var(--dim)')+'">'+(r.blocked?'hold':fmt(r.ship_now))+'</td><td class="num">'+fmt(r.q4_units)+'</td>'+

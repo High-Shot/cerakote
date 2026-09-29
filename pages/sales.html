@@ -196,6 +196,11 @@ table.dt td .sub{display:block;font-size:9px;color:var(--dim);font-weight:400;fo
 .pace-ok .pace-pct{color:var(--green)}.pace-warn .pace-pct{color:var(--amber)}.pace-crit .pace-pct{color:var(--red)}
 .pace-none{color:var(--dim);font-style:normal;}
 table.dt tr.pace-total td{border-top:1px solid var(--border2);color:var(--text);font-weight:600;background:var(--bg3);}
+.oos-chip{display:inline-block;margin:3px 0 0;padding:1px 6px;border-radius:3px;font-family:var(--font-mono);font-size:9px;font-weight:600;color:var(--red);background:var(--red-bg);border:1px solid var(--red-border);text-decoration:none;white-space:nowrap;}
+td:first-child .oos-chip{display:table;}
+.oos-chip.var{color:var(--amber);background:var(--amber-bg);border-color:var(--amber-border);}
+.sec-sub{font-family:var(--font-mono);font-size:9px;letter-spacing:0.3px;text-transform:none;color:var(--dim);font-weight:500;}
+.sec-sub a{color:var(--accent);}
 .prelim{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:5px;font-family:var(--font-mono);font-size:10px;color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber-border);}
 .data-notes{list-style:none;margin:0 0 24px;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card);font-family:var(--font-mono);font-size:10.5px;color:var(--muted);line-height:1.7;}
 .data-notes li::before{content:'\2022';color:var(--accent);margin-right:8px;}
@@ -214,7 +219,10 @@ var WEEKS = /*__WEEKS__*/;
 var MKT_KEYS = /*__MKT_KEYS__*/;
 var FX = /*__FX__*/;
 var NTB_MKTS = /*__NTB_MKTS__*/;  // markets whose ads report new-to-brand at all
-var PACING = /*__PACING__*/;  // [{month:'YYYY-MM', budgets:{tab:n}, spend:{tab:{spend,source}}, through:'YYYY-MM-DD'}] oldest first  // units of currency per 1 USD, by ISO code; MKT_META[k].code picks the rate
+var PACING = /*__PACING__*/;
+var PERIODS = /*__PERIODS__*/;  // exact calendar-month totals by 'YYYY-MM' (NIC normalize.py --period)
+var STOCK = /*__STOCK__*/;      // out-of-stock now, per tab, from the latest Q4 inventory projection
+var CHANGES = /*__CHANGES__*/;  // ad changes logged in Scale Insights: weekly counts + budget changes  // [{month:'YYYY-MM', budgets:{tab:n}, spend:{tab:{spend,source}}, through:'YYYY-MM-DD'}] oldest first  // units of currency per 1 USD, by ISO code; MKT_META[k].code picks the rate
 var FX_MODE = 'USD';   // GLOBAL view is FX-normalised to USD
 var MKT_COLORS = {CC_US:"#4fc3f7",CC_CA:"#4ade80",CC_UK:"#a78bfa",CC_FR:"#fbbf24",CC_DE:"#2dd4bf",CC_IT:"#fb923c",CC_ES:"#f472b6",CC_NL:"#94a3b8",CC_MX:"#c084fc",CC_AUS:"#ef4444",CC_SA:"#eab308",CL_US:"#f59e0b",PP_US:"#34d399"};
 
@@ -333,15 +341,24 @@ function monthSlice(y,m,uptoWeekIdx,uptoDay){ // sum of prorated weeks of month 
   });
   return {markets:mergeMarkets(parts),days:days,weeks:parts.length};
 }
-function getMonthView(){ // full calendar month holding the selected week; partial months compare to the same day-range of the prior month
+function getMonthView(){ // calendar month holding the selected week. Exact date-range totals when PERIODS has the month, else weeks split by day
   if(!WEEKS.length)return WEEKS[0];
   const sel=WEEKS[wIdx],ym=weekMonth(sel);
   const dim=new Date(Date.UTC(ym.y,ym.m+1,0)).getUTCDate();
+  const py=ym.m===0?ym.y-1:ym.y,pm=ym.m===0?11:ym.m-1;
+  const key=ym.y+'-'+String(ym.m+1).padStart(2,'0'), pkey=py+'-'+String(pm+1).padStart(2,'0');
+  const X=PERIODS&&PERIODS[key];
+  if(X){
+    const XP=PERIODS[pkey];let prev,range;
+    if(XP&&X.complete&&XP.complete){prev=XP.markets;range='vs '+MONTH_NAMES[pm];}
+    else if(XP&&XP.complete){prev=scaleMarkets({markets:XP.markets},X.days/XP.days);range='vs '+MONTH_NAMES[pm]+' at the same daily rate ('+X.days+' of '+XP.days+' days)';}
+    else{prev=monthSlice(py,pm,null,X.days).markets;range='vs '+MONTH_NAMES[pm]+' 1-'+X.days+' (est.)';}
+    return {label:MONTH_NAMES[ym.m]+' '+ym.y+(X.complete?'':' MTD'),fullLabel:'Calendar month: '+X.fullLabel+(X.complete?'':' ('+X.days+' of '+dim+' days)')+' · exact totals',range:range,markets:X.markets,_prev:prev,_partial:!X.complete,_exact:true};
+  }
   const latest=weSunday(WEEKS[0]);const complete=latest>=new Date(Date.UTC(ym.y,ym.m,dim));
   const cur=monthSlice(ym.y,ym.m,null,null);
-  const py=ym.m===0?ym.y-1:ym.y,pm=ym.m===0?11:ym.m-1;
-  const prev=complete?monthSlice(py,pm,null,null):monthSlice(py,pm,null,cur.days);
-  return {label:MONTH_NAMES[ym.m]+' '+ym.y+(complete?'':' PARTIAL'),fullLabel:'Calendar month: '+MONTH_NAMES[ym.m]+' '+ym.y+(complete?'':' (PARTIAL, '+cur.days+' of '+dim+' days loaded)')+' · weeks that span two months are split by day (estimate)',range:'vs '+MONTH_NAMES[pm]+(complete?'':' 1-'+cur.days),markets:cur.markets,_prev:prev.markets,_partial:!complete};
+  const prevS=complete?monthSlice(py,pm,null,null):monthSlice(py,pm,null,cur.days);
+  return {label:MONTH_NAMES[ym.m]+' '+ym.y+(complete?'':' PARTIAL'),fullLabel:'Calendar month: '+MONTH_NAMES[ym.m]+' '+ym.y+(complete?'':' (PARTIAL, '+cur.days+' of '+dim+' days loaded)')+' · weeks that span two months are split by day (estimate)',range:'vs '+MONTH_NAMES[pm]+(complete?'':' 1-'+cur.days),markets:cur.markets,_prev:prevS.markets,_partial:!complete};
 }
 function getActiveWeek(){return viewMode==='MONTH'?getMonthView():WEEKS[wIdx];}
 function getPriorAcct(w,mk){ // comparison basis for the trend bar
@@ -370,6 +387,13 @@ function ntbCell(st,txt){
   if(st==='pending')return '<span class="pace-none" title="Loads Thursday from the Reports Beta file">pending</span>';
   return txt+(st==='partial'?'<span class="pace-none" title="Some weeks or markets not loaded yet">*</span>':'');
 }
+// ---- stock: what the Inventory page says is out right now. Shown only on views that include the current week
+function stockNow(){if(!STOCK||!STOCK.tabs)return false;if(viewMode==='WEEKLY')return wIdx===0;return weekMonth(WEEKS[wIdx]).m===weekMonth(WEEKS[0]).m&&weekMonth(WEEKS[wIdx]).y===weekMonth(WEEKS[0]).y;}
+function stockTab(t){return stockNow()?(STOCK.tabs[t]||null):null;}
+function fDay(s){if(!s)return '?';const p=s.split('-');return MONTH_NAMES[+p[1]-1]+' '+(+p[2]);}
+function oosChip(t){const s=stockTab(t);if(!s||!s.out)return '';
+  return `<a class="oos-chip" href="../inventory/" onclick="event.stopPropagation()" title="Out of stock now, per the Inventory page (${esc(STOCK.week)})">${s.out} out${s.lost_usd?' · $'+fN(s.lost_usd)+' lost':''}</a>`;}
+function oosProduct(t,name){const s=stockTab(t);if(!s)return null;const l=s.items.filter(i=>i.product===name);return l.find(i=>i.main)||l[0]||null;}
 function getMktData(w,mk){
   if(mk==='GLOBAL') return {acct:getGlobalAcct(w),products:[],flags:[]};
   return w.markets[mk]||{acct:{revenue:0,units:0,sessions:0,pageviews:0,adSpend:0,adSales:0,organicSales:0,acos:0,tacos:0,roas:0,ntbOrders:0,ntbSales:0,ntbPct:0,cvr:0},products:[],flags:[]};
@@ -536,26 +560,34 @@ function paceCls(p){if(p==null)return '';const a=Math.abs(p-100);return a<=5?'pa
 function paceCell(p){if(p==null)return '<span class="pace-none">no budget</span>';const c=paceCls(p);const w=Math.min(p,130)/1.3;
   return `<span class="${c}"><span class="pace-pct">${p.toFixed(1)}%</span><span class="pace-bar"><i style="width:${w}%"></i><b></b></span></span>`;}
 function paceMonthLabel(P){const [y,m]=P.month.split('-').map(Number);return MONTH_NAMES[m-1]+' '+y;}
+function pace7(P,t,c){ // last 7 days: the reporting week that ends on the pacing date, against 7 days of budget
+  const w=WEEKS.find(x=>x.we===P.through);if(!w||c.budget==null)return {pct:null,spend:null};
+  const a=w.markets[t]?.acct;if(!a)return {pct:null,spend:null};
+  const tgt=c.budget/c.dim*7;return {pct:tgt?a.adSpend/tgt*100:null,spend:a.adSpend,tgt};
+}
 function renderPacing(tabs){
   const P=paceFor(); if(!P)return '';
   const rows=PACE_ORDER.filter(t=>tabs.indexOf(t)!==-1);
   if(!rows.length)return '';
   const any=rows.map(t=>paceCalc(P,t));const c0=any[0];
   const noBudget=!Object.keys(P.budgets||{}).length;
+  const has7=!!WEEKS.find(x=>x.we===P.through);
   const sel=PACING.length>1?`<select class="pace-sel" onchange="paceMonth=this.value;render()">${PACING.map(p=>`<option value="${p.month}"${p.month===P.month?' selected':''}>${paceMonthLabel(p)}</option>`).join('')}</select>`:'';
   let h=`<div class="pace-head"><div class="sec">Ad Budget Pacing &middot; ${paceMonthLabel(P)}</div>${sel}<span class="pace-meta">${P.through?`spend through ${MONTH_NAMES[+P.month.slice(5)-1]} ${c0.d} &middot; ${c0.d} of ${c0.dim} days`:'no spend loaded yet'}</span></div>`;
   if(noBudget)h+=`<div class="pace-note" style="margin:0 0 10px;color:var(--amber)">${paceMonthLabel(P)} budgets are not in the budget sheet yet. Spend shows below; pacing appears once the client sets the month.</div>`;
-  h+=`<div class="tbl-wrap"><table class="dt"><thead><tr><th>Channel</th><th>Monthly budget</th><th>Spend MTD</th><th>Target MTD</th><th style="text-align:left;padding-left:18px">Trending to goal</th><th>Projected month</th><th>Needed / day</th></tr></thead><tbody>`;
-  let tb=0,ts=0,tt=0,tp=0,tn=0,hasB=false;
-  rows.forEach(t=>{const c=paceCalc(P,t),cur=getCur(t);
-    if(c.budget!=null&&c.spend!=null){hasB=true;tb+=toUSD(t,c.budget);ts+=toUSD(t,c.spend);tt+=toUSD(t,c.target||0);tp+=toUSD(t,c.proj||0);tn+=toUSD(t,c.need||0);}
-    h+=`<tr class="clickable" onclick="switchMkt('${t}')"><td>${MKT_META[t]?.label||t}<span class="sub">${MKT_META[t]?.name||''}</span></td>`
+  h+=`<div class="tbl-wrap"><table class="dt"><thead><tr><th>Channel</th><th>Monthly budget</th><th>Spend MTD</th><th>Target MTD</th><th style="text-align:left;padding-left:18px">Trending to goal</th>${has7?'<th style="text-align:left;padding-left:18px">Last 7 days</th>':''}<th>Projected month</th><th>Needed / day</th></tr></thead><tbody>`;
+  let tb=0,ts=0,tt=0,tp=0,tn=0,t7=0,g7=0,hasB=false;
+  rows.forEach(t=>{const c=paceCalc(P,t),cur=getCur(t),s7=pace7(P,t,c),st=stockTab(t);
+    if(c.budget!=null&&c.spend!=null){hasB=true;tb+=toUSD(t,c.budget);ts+=toUSD(t,c.spend);tt+=toUSD(t,c.target||0);tp+=toUSD(t,c.proj||0);tn+=toUSD(t,c.need||0);if(s7.spend!=null){t7+=toUSD(t,s7.spend);g7+=toUSD(t,s7.tgt);}}
+    const limited=st&&st.lost_usd>=1000&&c.pct!=null&&c.pct<85;  // real lost sales, not a stray long-tail SKU
+    h+=`<tr class="clickable" onclick="switchMkt('${t}')"><td>${MKT_META[t]?.label||t}<span class="sub">${MKT_META[t]?.name||''}</span>${limited?`<span class="sub" style="color:var(--red)">stock-limited: ${st.out} out of stock</span>`:''}</td>`
       +`<td>${c.budget!=null?fCF(c.budget,cur):'<span class="pace-none">&mdash;</span>'}</td><td>${c.spend!=null?fCF(c.spend,cur):'<span class="pace-none">&mdash;</span>'}</td>`
       +`<td>${c.target!=null?fCF(c.target,cur):'&mdash;'}</td><td style="text-align:left;padding-left:18px">${paceCell(c.pct)}</td>`
+      +(has7?`<td style="text-align:left;padding-left:18px" title="${s7.spend!=null?'Spent '+fCF(s7.spend,cur)+' in the week ending '+fDay(P.through)+' vs '+fCF(s7.tgt||0,cur)+' of weekly budget':''}">${paceCell(s7.pct)}</td>`:'')
       +`<td>${c.proj!=null?fCF(c.proj,cur):'&mdash;'}</td><td>${c.need!=null?fCF(c.need,cur):'&mdash;'}</td></tr>`;});
   if(rows.length>1&&hasB){const pct=tt?ts/tt*100:null;
-    h+=`<tr class="pace-total"><td>Total<span class="sub">USD equivalent</span></td><td>${fCF(tb,'$')}</td><td>${fCF(ts,'$')}</td><td>${fCF(tt,'$')}</td><td style="text-align:left;padding-left:18px">${paceCell(pct)}</td><td>${fCF(tp,'$')}</td><td>${fCF(tn,'$')}</td></tr>`;}
-  h+=`</tbody></table></div><div class="pace-note">Trending to goal = spend to date &divide; (budget &times; days elapsed &divide; days in month), the sheet's column I. 100% = on pace to spend the full budget. Green within 5 points, amber within 15, red beyond. Needed / day = what's left of the budget &divide; days left. Spend: Scale Insights (Cerakote Auto), Helium10 (Legacy, Prismatic, SA). Budgets: NIC_Monthly_Budgets sheet, ${P.source_tab?'"'+P.source_tab+'" tab':'tab not found yet'}.${(P.notes||[]).length?' '+P.notes.join(' '):''}</div>`;
+    h+=`<tr class="pace-total"><td>Total<span class="sub">USD equivalent</span></td><td>${fCF(tb,'$')}</td><td>${fCF(ts,'$')}</td><td>${fCF(tt,'$')}</td><td style="text-align:left;padding-left:18px">${paceCell(pct)}</td>${has7?`<td style="text-align:left;padding-left:18px">${paceCell(g7?t7/g7*100:null)}</td>`:''}<td>${fCF(tp,'$')}</td><td>${fCF(tn,'$')}</td></tr>`;}
+  h+=`</tbody></table></div><div class="pace-note">Trending to goal = spend to date &divide; (budget &times; days elapsed &divide; days in month), the sheet's column I. 100% = on pace to spend the full budget. Green within 5 points, amber within 15, red beyond. ${has7?'Last 7 days = the reporting week\'s spend &divide; 7 days of budget: where pacing is heading now. ':''}Stock-limited = under 85% while products out of stock have cost $1,000+ in lost sales (Inventory page), so more budget may not buy sales. Needed / day = what's left of the budget &divide; days left. Spend: Scale Insights (Cerakote Auto), Helium10 (Legacy, Prismatic, SA). Budgets: NIC_Monthly_Budgets sheet, ${P.source_tab?'"'+P.source_tab+'" tab':'tab not found yet'}.${(P.notes||[]).length?' '+P.notes.join(' '):''}</div>`;
   return h;
 }
 
@@ -572,7 +604,7 @@ function renderGlobalView(){
     if(!hasData(a)){html+=`<tr class="clickable" onclick="switchMkt('${k}')"><td>${MKT_META[k]?.label||k}<span class="sub">${MKT_META[k]?.name||''}</span></td><td colspan="13" style="text-align:left;color:var(--muted)">No data for this period</td></tr>`;return;}
     const ts=a.tacos>15?'crit':a.tacos>10?'warn':'ok';
     const org=a.organicSales!=null?a.organicSales:((a.revenue||0)-(a.adSales||0));
-    html+=`<tr class="clickable" onclick="switchMkt('${k}')"><td>${MKT_META[k]?.label||k}<span class="sub">${MKT_META[k]?.name||''}</span></td><td>${pa?fCF(pa.revenue||0,cur):'—'}</td><td>${fCF(a.revenue||0,cur)}</td><td>${dd(a.revenue,pa&&pa.revenue)}</td><td>${fN(a.units||0)} ${dd(a.units,pa&&pa.units)}</td><td>${fN(a.sessions||0)}</td><td>${fP(a.cvr||0)}</td><td>${fCF(a.adSpend||0,cur)}</td><td>${fCF(a.adSales||0,cur)}</td><td>${fCF(Math.round(org),cur)}</td><td><span class="pill ${ts}">${fP(a.tacos||0)}</span> ${dd(a.tacos,pa&&pa.tacos,true,true)}</td><td>${fP(a.acos||0)}</td><td>${ntbCell(ntbState(w,k),fN(a.ntbOrders||0))}</td><td>${ntbCell(ntbState(w,k),fP(a.ntbPct||0))}</td></tr>`;
+    html+=`<tr class="clickable" onclick="switchMkt('${k}')"><td>${MKT_META[k]?.label||k}<span class="sub">${MKT_META[k]?.name||''}</span>${oosChip(k)}</td><td>${pa?fCF(pa.revenue||0,cur):'—'}</td><td>${fCF(a.revenue||0,cur)}</td><td>${dd(a.revenue,pa&&pa.revenue)}</td><td>${fN(a.units||0)} ${dd(a.units,pa&&pa.units)}</td><td>${fN(a.sessions||0)}</td><td>${fP(a.cvr||0)}</td><td>${fCF(a.adSpend||0,cur)}</td><td>${fCF(a.adSales||0,cur)}</td><td>${fCF(Math.round(org),cur)}</td><td><span class="pill ${ts}">${fP(a.tacos||0)}</span> ${dd(a.tacos,pa&&pa.tacos,true,true)}</td><td>${fP(a.acos||0)}</td><td>${ntbCell(ntbState(w,k),fN(a.ntbOrders||0))}</td><td>${ntbCell(ntbState(w,k),fP(a.ntbPct||0))}</td></tr>`;
   });
   html+='</tbody></table></div>';
 
@@ -620,12 +652,20 @@ function renderMktView(){
       const porg=pp?(pp.organic!=null?pp.organic:((pp.revenue||0)-(pp.adSales||0))):null;
       const bsr=(p.categoryBSR||p.bsr);
       const pbsr=pp?(pp.categoryBSR||pp.bsr):null;
-      html+=`<tr><td>${esc(p.name)}${p.subcategory?`<span class="sub">${esc(p.subcategory)}</span>`:''}</td><td>${pp?fCF(pp.revenue||0,cur):'\u2014'}</td><td>${fCF(p.revenue||0,cur)}</td><td>${dd(p.revenue,pp&&pp.revenue)}</td><td>${fN(p.units||0)} ${dd(p.units,pp&&pp.units)}</td><td>${fN(p.sessions||0)} ${dd(p.sessions,pp&&pp.sessions)}</td><td>${fP(p.cvr||0)} ${dd(p.cvr,pp&&pp.cvr,true)}</td><td>${fCF(p.adSpend||0,cur)} ${dd(p.adSpend,pp&&pp.adSpend,false,true)}</td><td>${fCF(p.adSales||0,cur)} ${dd(p.adSales,pp&&pp.adSales)}</td><td>${fCF(Math.round(org),cur)} ${dd(org,porg)}</td><td><span class="pill ${ts}">${fP(p.tacos||0)}</span> ${dd(p.tacos,pp&&pp.tacos,true,true)}</td><td>${fP(p.acos||0)} ${dd(p.acos,pp&&pp.acos,true,true)}</td><td>${ntbCell(ntbState(w,mktKey),fN(p.ntbOrders||0)+' '+dd(p.ntbOrders,pp&&pp.ntbOrders))}</td><td>${bsr?'#'+bsr:'\u2014'}${p.subcategoryBSR?` <span class="sub" style="display:inline;color:var(--accent)">(#${p.subcategoryBSR})</span>`:''} ${bsr&&pbsr?dd(bsr,pbsr,false,true):''}</td></tr>`;
+      const oo=oosProduct(mktKey,p.name);
+      html+=`<tr><td>${esc(p.name)}${oo?`<span class="oos-chip${oo.main?'':' var'}" title="${esc(oo.name)} (${oo.asin}): ${oo.hold?'listing on hold':'out of stock'} since ${fDay(oo.since)}, est. $${fN(oo.lost_usd)} lost so far">${oo.main?(oo.hold?'HOLD':'OUT'):'A variant out'} since ${fDay(oo.since)}</span>`:''}${p.subcategory?`<span class="sub">${esc(p.subcategory)}</span>`:''}</td><td>${pp?fCF(pp.revenue||0,cur):'\u2014'}</td><td>${fCF(p.revenue||0,cur)}</td><td>${dd(p.revenue,pp&&pp.revenue)}</td><td>${fN(p.units||0)} ${dd(p.units,pp&&pp.units)}</td><td>${fN(p.sessions||0)} ${dd(p.sessions,pp&&pp.sessions)}</td><td>${fP(p.cvr||0)} ${dd(p.cvr,pp&&pp.cvr,true)}</td><td>${fCF(p.adSpend||0,cur)} ${dd(p.adSpend,pp&&pp.adSpend,false,true)}</td><td>${fCF(p.adSales||0,cur)} ${dd(p.adSales,pp&&pp.adSales)}</td><td>${fCF(Math.round(org),cur)} ${dd(org,porg)}</td><td><span class="pill ${ts}">${fP(p.tacos||0)}</span> ${dd(p.tacos,pp&&pp.tacos,true,true)}</td><td>${fP(p.acos||0)} ${dd(p.acos,pp&&pp.acos,true,true)}</td><td>${ntbCell(ntbState(w,mktKey),fN(p.ntbOrders||0)+' '+dd(p.ntbOrders,pp&&pp.ntbOrders))}</td><td>${bsr?'#'+bsr:'\u2014'}${p.subcategoryBSR?` <span class="sub" style="display:inline;color:var(--accent)">(#${p.subcategoryBSR})</span>`:''} ${bsr&&pbsr?dd(bsr,pbsr,false,true):''}</td></tr>`;
     });
     html+='</tbody></table></div>';
   } else {
     html+='<div class="sec" style="color:var(--muted);margin:40px 0">Account-level data only. No product breakdown available for this marketplace.</div>';
   }
+  const st=stockTab(mktKey);
+  if(st&&st.items.length){
+    html+=`<div class="sec">Out of stock now <span class="sec-sub">from the Inventory page, ${esc(STOCK.week)} · <a href="../inventory/">open</a></span></div><div class="tbl-wrap"><table class="dt"><thead><tr><th>Product</th><th>Out since</th><th>Days</th><th>Lost so far</th><th>Inbound</th></tr></thead><tbody>`
+      +st.items.slice(0,8).map(i=>`<tr><td>${esc(i.name)}<span class="sub">${i.asin}${i.pool?' · '+esc(i.pool)+' pool':''}${i.hold?' · listing on hold':''}</span></td><td>${fDay(i.since)}</td><td>${i.days??'?'}</td><td>${i.hold?'<span class="pace-none">hold</span>':'$'+fN(i.lost_usd)}</td><td>${i.inbound?fN(i.inbound):'<span class="pace-none">none</span>'}</td></tr>`).join('')
+      +`</tbody></table></div>`;
+  }
+  if(WEEKS.length>1&&w===WEEKS[wIdx])html+=`<div class="sec">Weekly trend <span class="sec-sub">revenue, TACoS${(CHANGES.weeks&&Object.keys(CHANGES.weeks).length)?', and weeks with big ad changes (dashed)':''}</span></div><div class="panel" style="margin-bottom:24px"><div class="panel-body"><div class="chart-wrap tall"><canvas id="mTrend"></canvas></div></div></div>`;
   if((d.flags||[]).length)html+=`<div class="sec">Data notes</div><ul class="data-notes">${d.flags.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`;
 
   document.getElementById('mainContent').innerHTML=html;
@@ -660,13 +700,47 @@ function buildGlobalCharts(){
     const trendRevs=WEEKS.map(w=>getGlobalAcct(w).revenue).reverse();
     const trendTacos=WEEKS.map(w=>getGlobalAcct(w).tacos).reverse();
 
-    mkChart('gRevTrend',{type:'line',data:{labels:wLabels,datasets:[{data:trendRevs,borderColor:'#ff9800',backgroundColor:'#ff980010',fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#ff9800',borderWidth:2}]},options:{...chartDefaults,scales:{x:{grid:{color:'#262626'},ticks:{color:'#a3a3a3',font:{size:9},maxRotation:45}},y:{...chartDefaults.scales.y,ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#a3a3a3',font:{size:9}}}}}});
+    const gwe=WEEKS.map(w=>w.we).reverse(),gcw=changeWeeks('GLOBAL');
+    mkChart('gRevTrend',{type:'line',plugins:[changeMarkers],data:{labels:wLabels,datasets:[{data:trendRevs,borderColor:'#ff9800',backgroundColor:'#ff980010',fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:'#ff9800',borderWidth:2}]},options:{...chartDefaults,plugins:{legend:{display:false},changeMarkers:{idx:markerIdx(gwe,gcw)},tooltip:{callbacks:{footer:changeFooter(gcw,gwe)}}},scales:{x:{grid:{color:'#262626'},ticks:{color:'#a3a3a3',font:{size:9},maxRotation:45}},y:{...chartDefaults.scales.y,ticks:{callback:v=>'$'+(v/1000).toFixed(0)+'k',color:'#a3a3a3',font:{size:9}}}}}});
 
     mkChart('gTacosTrend',{type:'line',data:{labels:wLabels,datasets:[{data:trendTacos,borderColor:'#ff9800',segment:{borderColor:ctx=>{const v=ctx.p1.parsed.y;return v>15?'#ef4444':v>10?'#ff9800':'#10b981';}},backgroundColor:'#ff980008',fill:true,tension:0.3,pointRadius:3,pointBackgroundColor:trendTacos.map(v=>v>15?'#ef4444':v>10?'#ff9800':'#10b981'),borderWidth:2},{label:'10% Target',data:new Array(wLabels.length).fill(10),borderColor:'#3a3a3a',borderDash:[4,4],borderWidth:1,pointRadius:0,fill:false}]},options:{...chartDefaults,plugins:{legend:{display:false}},scales:{x:{grid:{color:'#262626'},ticks:{color:'#a3a3a3',font:{size:9},maxRotation:45}},y:{...chartDefaults.scales.y,ticks:{callback:v=>v+'%',color:'#a3a3a3',font:{size:9}}}}}});
   }
 }
 
+// ---- ad-change markers: weeks where Scale Insights logged a budget change, or manual edits well above that market's norm
+function changeWeeks(tab){ // -> {we: {manual, automation, budget}} for tab ('GLOBAL' sums all)
+  const out={};if(!CHANGES||!CHANGES.weeks)return out;
+  Object.keys(CHANGES.weeks).forEach(we=>{const m=CHANGES.weeks[we];let a=0,b=0,n=false;
+    Object.keys(m).forEach(t=>{if(tab!=='GLOBAL'&&t!==tab)return;n=true;a+=m[t].manual||0;b+=m[t].automation||0;});if(n)out[we]={manual:a,automation:b,budget:0};});
+  Object.keys(CHANGES.budget_changes||{}).forEach(t=>{if(tab!=='GLOBAL'&&t!==tab)return;(CHANGES.budget_changes[t]||[]).forEach(c=>{(out[c.we]=out[c.we]||{manual:0,automation:0,budget:0}).budget++;});});
+  return out;
+}
+function markerIdx(labelsWe,cw){ // indexes of weeks to mark
+  const ms=Object.values(cw).map(x=>x.manual).filter(x=>x>0).sort((a,b)=>a-b);const med=ms.length?ms[Math.floor(ms.length/2)]:0;
+  return labelsWe.map((we,i)=>{const c=cw[we];return c&&(c.budget>0||(c.manual>=50&&c.manual>=2*med))?i:-1;}).filter(i=>i>=0);
+}
+const changeMarkers={id:'changeMarkers',afterDatasetsDraw(chart,args,opts){
+  if(!opts||!opts.idx||!opts.idx.length)return;const {ctx,chartArea,scales}=chart;ctx.save();
+  opts.idx.forEach(i=>{const x=scales.x.getPixelForValue(i);ctx.strokeStyle='rgba(250,204,21,0.6)';ctx.setLineDash([3,3]);ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(x,chartArea.top);ctx.lineTo(x,chartArea.bottom);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#facc15';ctx.font='600 9px "JetBrains Mono",monospace';ctx.fillText('changes',x+3,chartArea.top+10);});
+  ctx.restore();}};
+function changeFooter(cw,labelsWe){return items=>{const c=cw[labelsWe[items[0].dataIndex]];if(!c)return '';
+  return 'Ad changes logged in Scale Insights: '+c.manual+' manual, '+c.automation+' rule'+(c.budget?', '+c.budget+' budget':'');};}
+function buildMktTrend(){
+  const el=document.getElementById('mTrend');if(!el)return;
+  const ws=WEEKS.slice().reverse(),cur=getCur(mktKey);
+  const labels=ws.map(w=>w.label),we=ws.map(w=>w.we);
+  const rev=ws.map(w=>w.markets[mktKey]?.acct.revenue||0),tac=ws.map(w=>w.markets[mktKey]?.acct.tacos||0);
+  const cw=changeWeeks(mktKey);
+  mkChart('mTrend',{type:'bar',plugins:[changeMarkers],data:{labels,datasets:[
+    {type:'bar',label:'Revenue',data:rev,backgroundColor:'#ff980030',borderColor:'#ff9800',borderWidth:1,borderRadius:3,yAxisID:'y'},
+    {type:'line',label:'TACoS %',data:tac,borderColor:'#10b981',backgroundColor:'#10b981',pointRadius:2,tension:0.3,yAxisID:'y1'}]},
+    options:{...chartDefaults,plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:8,padding:10,font:{size:9},color:'#a3a3a3'}},changeMarkers:{idx:markerIdx(we,cw)},tooltip:{callbacks:{footer:changeFooter(cw,we)}}},
+      scales:{x:{grid:{color:'#262626'},ticks:{color:'#a3a3a3',font:{size:9},maxRotation:45}},y:{grid:{color:'#262626'},ticks:{color:'#a3a3a3',font:{size:9},callback:v=>cur+(v>=1000?(v/1000).toFixed(0)+'k':v)}},
+        y1:{position:'right',grid:{display:false},ticks:{color:'#10b981',font:{size:9},callback:v=>v+'%'}}}}});
+}
 function buildMktCharts(){
+  buildMktTrend();
   const d=getMktData(getActiveWeek(),mktKey);
   const prods=d.products||[];
   if(!prods.length)return;

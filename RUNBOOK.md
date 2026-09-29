@@ -42,11 +42,19 @@ python3 scripts/pacing.py spend $MONTH $THROUGH CC_US=<n>:si CC_CA=<n>:si ... CL
 Never estimate a missing channel; leave it out and flag it.
 Source check (2026-09-28): Scale Insights matched the sheet's Ads-export spend within 0.2% on all nine Cerakote Auto markets. Helium10 matches Amazon's Reports Beta spend to the cent, but NOT the sheet for CL_US (-15%), PP_US (+8%) and CC_SA (+14%) over Sept 1-26. The sheet's figures for those three are the suspect ones (unconfirmed).
 
+## 4b. Ad-change markers (Scale Insights change history)
+For each Cerakote Auto market (US, CA, UK, DE, FR, IT, ES, NL, AU), `mcp__Scale_Insights__get_change_history` for THROUGH-6 to THROUGH; read TotalChanges split into manual and automation. Then:
+```
+python3 scripts/changes.py counts $THROUGH US=<manual>:<auto> CA=<m>:<a> UK=... DE=... FR=... IT=... ES=... NL=... AU=...
+```
+Budget changes: filter the same call to budget changes; for each market that has any, save the tool result JSON and run `python3 scripts/changes.py budget <CC> <file>` (dedupes). Only changes made in Scale Insights show up; changes made in the Amazon console do not. The Sales trend charts draw a dashed "changes" line on weeks with a budget change, or with manual changes at 2x the median and 50+.
+Skip on failure; the charts just show no marker for that week.
+
 ## 5. Build
 ```
 python3 scripts/build.py --nic ../NIC --intl ../INTL
 ```
-Then check: open each of sales/, health/, inventory/ in Playwright (`python3 -m http.server` from /home/claude, pages under /cerakote/), no console errors, no horizontal scroll at 390 px. The Sales GLOBAL view must show the pacing table.
+Then check: open each of sales/, health/, inventory/ in Playwright (`python3 -m http.server` from /home/claude, pages under /cerakote/), no console errors, no horizontal scroll at 390 px. The Sales GLOBAL view must show the pacing table with the Last 7 days column. The Month view must say "exact totals": it reads NIC `data/periods/`, written by the NIC run step 4b; without it the view falls back to prorated weeks labeled "est.". Out-of-stock chips come from the latest INTL q4 file.
 
 ## 6. Publish (from the Mac)
 The cloud proxy blocks pushes to repos that are not authorized for the session. Publish from the Mac:

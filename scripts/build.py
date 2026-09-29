@@ -9,7 +9,7 @@ Cerakote Ops site: one URL, three pages, one shell.
 The NIC and INTL repos stay the data pipelines. This repo only renders. Nothing here writes to them.
 Usage: python3 scripts/build.py --nic ../NIC --intl ../INTL
 """
-import json, os, glob, sys, shutil, datetime as dt
+import json, os, glob, sys, shutil, re, datetime as dt
 from zoneinfo import ZoneInfo
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -141,11 +141,71 @@ def build_sales():
                            'spend': s.get('channels', {}), 'notes': s.get('notes', [])})
     pacing.sort(key=lambda x: x['month'])
 
+    # exact calendar-month totals (NIC data/periods/<YYYY-MM>.json, normalize.py --period); the Month view prefers these
+    periods = {}
+    for pp in sorted(glob.glob(os.path.join(NIC, 'data', 'periods', '*.json'))):
+        d = json.load(open(pp))
+        periods[d['month']] = {k: d[k] for k in ('month', 'start', 'end', 'days', 'complete', 'label', 'fullLabel')}
+        periods[d['month']]['markets'] = {t: {'acct': m['acct'], 'products': [{k: pr.get(k) for k in keys_} for pr in m['products']],
+                                              'flags': m['flags'], 'ntbLoaded': not any('NTB not loaded' in f for f in m['flags'])}
+                                          for t, m in d['markets'].items() if t not in archived}
+    stock = build_stock_links(files)
+    changes = json.load(open(os.path.join(ROOT, 'data', 'changes.json'))) if os.path.exists(os.path.join(ROOT, 'data', 'changes.json')) else {}
+
     tpl = read(os.path.join(ROOT, 'pages', 'sales.html'))
     tpl = add_css(swap_header(tpl, shell_header('sales')))
     html = (tpl.replace('/*__MKT_META__*/', js(meta)).replace('/*__MKT_KEYS__*/', js(mkeys)).replace('/*__FX__*/', js(fx))
-            .replace('/*__WEEKS__*/', js(weeks)).replace('/*__PACING__*/', js(pacing)).replace('/*__NTB_MKTS__*/', js(ntb_markets)))
+            .replace('/*__WEEKS__*/', js(weeks)).replace('/*__PACING__*/', js(pacing)).replace('/*__NTB_MKTS__*/', js(ntb_markets))
+            .replace('/*__PERIODS__*/', js(periods)).replace('/*__STOCK__*/', js(stock)).replace('/*__CHANGES__*/', js(changes)))
     write(os.path.join(ROOT, 'sales', 'index.html'), html)
+
+
+# Inventory page -> Sales page: what is out of stock right now, per sales tab and product, from the latest Q4 projection.
+Q4_TO_TAB = {'CC_US': 'CC_US', 'CC_CA': 'CC_CA', 'CC_UK': 'CC_UK', 'CC_DE': 'CC_DE', 'CC_AU': 'CC_AUS', 'CC_SA': 'CC_SA',
+             'CL_US': 'CL_US', 'PP_US': 'PP_US'}
+EU_TAB = {'DE': 'CC_DE', 'FR': 'CC_FR', 'IT': 'CC_IT', 'ES': 'CC_ES', 'NL': 'CC_NL'}
+# main ASIN per Cerakote Auto product (NIC RUNBOOK 1c). An out-of-stock variant is not the product being out.
+MAIN_ASINS = {'B084RQKLV8', 'B07SHJVK4G', 'B0B94G13CN', 'B0F45C2YHV', 'B0FYRJ1966', 'B0CN8HJSYM', 'B0DJMW6283', 'B0DKVZRX69',
+              'B0CQN1RXYB', 'B0DVB4P9KQ', 'B0FW6WFX4D', 'B0FX5WH19H', 'B0DVV6K9Y6'}
+
+
+def build_stock_links(week_files):
+    q4 = sorted(glob.glob(os.path.join(INTL, 'data', 'q4', '*.json')))
+    if not q4 or not week_files:
+        return {}
+    d = json.load(open(q4[-1]))
+    latest = json.load(open(week_files[-1]))
+    a2p = {}  # (tab, asin) -> sales product name, from the latest NIC week
+    for t, m in latest['markets'].items():
+        for pr in m['products']:
+            for a in pr.get('asins') or []:
+                a2p[(t, a)] = pr['name']
+            if re.fullmatch(r'B0[A-Z0-9]{8}', pr.get('asin') or ''):
+                a2p[(t, pr['asin'])] = pr['name']
+    dm = json.load(open(os.path.join(NIC, 'config', 'data_map.json'))).get('asin_to_product', {})
+    for t in latest['markets']:
+        if t.startswith('CC_'):
+            for asin, prod in dm.items():   # products map by ASIN even in a week the ASIN sold nothing
+                if prod and not str(prod).startswith('OTHER:'):
+                    a2p.setdefault((t, asin), prod)
+    out = {'as_of': d.get('as_of'), 'week': d.get('week'), 'tabs': {}}
+    for r in d['rows']:
+        if r['status'] != 'OUT':
+            continue
+        tabs = [EU_TAB[mk] for mk in r['markets'] if mk in EU_TAB] if r['account'] == 'CC_EU' else [Q4_TO_TAB.get(r['account'])]
+        for t in [x for x in tabs if x]:
+            e = out['tabs'].setdefault(t, {'out': 0, 'lost_usd': 0.0, 'items': []})
+            e['out'] += 1
+            if not r.get('blocked'):
+                e['lost_usd'] += r.get('lost_usd') or 0
+            e['items'].append({'asin': r['asin'], 'name': r['name'], 'product': a2p.get((t, r['asin'])), 'since': r.get('oos_start'),
+                               'main': (r['asin'] in MAIN_ASINS) if t.startswith('CC_') else True,
+                               'days': r.get('oos_days'), 'lost_usd': round(r.get('lost_usd') or 0), 'inbound': r.get('inbound'),
+                               'hold': bool(r.get('blocked')), 'pool': r['label'] if r['pooled'] else None})
+    for e in out['tabs'].values():
+        e['lost_usd'] = round(e['lost_usd'])
+        e['items'].sort(key=lambda x: -x['lost_usd'])
+    return out
 
 
 # ---------------------------------------------------------------- health

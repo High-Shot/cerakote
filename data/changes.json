@@ -1,0 +1,556 @@
+{
+ "source": "Scale Insights get_change_history, changes logged in Scale Insights only",
+ "weeks": {
+  "2026-08-09": {
+   "CC_US": {
+    "manual": 0,
+    "automation": 617
+   },
+   "CC_CA": {
+    "manual": 0,
+    "automation": 256
+   },
+   "CC_UK": {
+    "manual": 0,
+    "automation": 336
+   },
+   "CC_DE": {
+    "manual": 0,
+    "automation": 145
+   },
+   "CC_FR": {
+    "manual": 0,
+    "automation": 71
+   },
+   "CC_IT": {
+    "manual": 0,
+    "automation": 59
+   },
+   "CC_ES": {
+    "manual": 0,
+    "automation": 73
+   },
+   "CC_NL": {
+    "manual": 0,
+    "automation": 10
+   },
+   "CC_AUS": {
+    "manual": 0,
+    "automation": 43
+   }
+  },
+  "2026-08-16": {
+   "CC_US": {
+    "manual": 0,
+    "automation": 669
+   },
+   "CC_CA": {
+    "manual": 0,
+    "automation": 290
+   },
+   "CC_UK": {
+    "manual": 0,
+    "automation": 339
+   },
+   "CC_DE": {
+    "manual": 0,
+    "automation": 177
+   },
+   "CC_FR": {
+    "manual": 0,
+    "automation": 103
+   },
+   "CC_IT": {
+    "manual": 0,
+    "automation": 62
+   },
+   "CC_ES": {
+    "manual": 0,
+    "automation": 79
+   },
+   "CC_NL": {
+    "manual": 0,
+    "automation": 21
+   },
+   "CC_AUS": {
+    "manual": 0,
+    "automation": 46
+   }
+  },
+  "2026-08-23": {
+   "CC_US": {
+    "manual": 4,
+    "automation": 316
+   },
+   "CC_CA": {
+    "manual": 0,
+    "automation": 145
+   },
+   "CC_UK": {
+    "manual": 0,
+    "automation": 58
+   },
+   "CC_DE": {
+    "manual": 0,
+    "automation": 16
+   },
+   "CC_FR": {
+    "manual": 0,
+    "automation": 45
+   },
+   "CC_IT": {
+    "manual": 0,
+    "automation": 23
+   },
+   "CC_ES": {
+    "manual": 0,
+    "automation": 14
+   },
+   "CC_NL": {
+    "manual": 0,
+    "automation": 25
+   },
+   "CC_AUS": {
+    "manual": 0,
+    "automation": 35
+   }
+  },
+  "2026-08-30": {
+   "CC_US": {
+    "manual": 1318,
+    "automation": 662
+   },
+   "CC_CA": {
+    "manual": 2,
+    "automation": 109
+   },
+   "CC_UK": {
+    "manual": 11,
+    "automation": 68
+   },
+   "CC_DE": {
+    "manual": 0,
+    "automation": 17
+   },
+   "CC_FR": {
+    "manual": 0,
+    "automation": 46
+   },
+   "CC_IT": {
+    "manual": 0,
+    "automation": 26
+   },
+   "CC_ES": {
+    "manual": 0,
+    "automation": 29
+   },
+   "CC_NL": {
+    "manual": 0,
+    "automation": 23
+   },
+   "CC_AUS": {
+    "manual": 0,
+    "automation": 54
+   }
+  },
+  "2026-09-06": {
+   "CC_US": {
+    "manual": 166,
+    "automation": 583
+   },
+   "CC_CA": {
+    "manual": 1302,
+    "automation": 230
+   },
+   "CC_UK": {
+    "manual": 458,
+    "automation": 134
+   },
+   "CC_DE": {
+    "manual": 261,
+    "automation": 36
+   },
+   "CC_FR": {
+    "manual": 204,
+    "automation": 57
+   },
+   "CC_IT": {
+    "manual": 12,
+    "automation": 7
+   },
+   "CC_ES": {
+    "manual": 111,
+    "automation": 92
+   },
+   "CC_NL": {
+    "manual": 105,
+    "automation": 66
+   },
+   "CC_AUS": {
+    "manual": 190,
+    "automation": 108
+   }
+  },
+  "2026-09-13": {
+   "CC_US": {
+    "manual": 235,
+    "automation": 709
+   },
+   "CC_CA": {
+    "manual": 0,
+    "automation": 243
+   },
+   "CC_UK": {
+    "manual": 0,
+    "automation": 115
+   },
+   "CC_DE": {
+    "manual": 0,
+    "automation": 30
+   },
+   "CC_FR": {
+    "manual": 0,
+    "automation": 56
+   },
+   "CC_IT": {
+    "manual": 0,
+    "automation": 2
+   },
+   "CC_ES": {
+    "manual": 0,
+    "automation": 113
+   },
+   "CC_NL": {
+    "manual": 0,
+    "automation": 56
+   },
+   "CC_AUS": {
+    "manual": 0,
+    "automation": 82
+   }
+  },
+  "2026-09-20": {
+   "CC_US": {
+    "manual": 864,
+    "automation": 911
+   },
+   "CC_CA": {
+    "manual": 59,
+    "automation": 239
+   },
+   "CC_UK": {
+    "manual": 464,
+    "automation": 150
+   },
+   "CC_DE": {
+    "manual": 311,
+    "automation": 30
+   },
+   "CC_FR": {
+    "manual": 121,
+    "automation": 55
+   },
+   "CC_IT": {
+    "manual": 197,
+    "automation": 8
+   },
+   "CC_ES": {
+    "manual": 173,
+    "automation": 105
+   },
+   "CC_NL": {
+    "manual": 41,
+    "automation": 34
+   },
+   "CC_AUS": {
+    "manual": 72,
+    "automation": 107
+   }
+  },
+  "2026-09-27": {
+   "CC_US": {
+    "manual": 1949,
+    "automation": 3769
+   },
+   "CC_CA": {
+    "manual": 1051,
+    "automation": 206
+   },
+   "CC_UK": {
+    "manual": 0,
+    "automation": 159
+   },
+   "CC_DE": {
+    "manual": 62,
+    "automation": 81
+   },
+   "CC_FR": {
+    "manual": 0,
+    "automation": 66
+   },
+   "CC_IT": {
+    "manual": 0,
+    "automation": 22
+   },
+   "CC_ES": {
+    "manual": 0,
+    "automation": 119
+   },
+   "CC_NL": {
+    "manual": 32,
+    "automation": 55
+   },
+   "CC_AUS": {
+    "manual": 0,
+    "automation": 126
+   }
+  }
+ },
+ "budget_changes": {
+  "CC_US": [
+   {
+    "by": "manual",
+    "campaign": 135784609336320,
+    "date": "2026-09-23",
+    "new": "5",
+    "old": "40.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 166856673045193,
+    "date": "2026-09-23",
+    "new": "3",
+    "old": "10.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 173265980414516,
+    "date": "2026-09-23",
+    "new": "3",
+    "old": "10.00",
+    "type": "SB",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 17810350595464,
+    "date": "2026-09-23",
+    "new": "3",
+    "old": "25.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 187302219796097,
+    "date": "2026-09-26",
+    "new": "80",
+    "old": "200.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 227181566815793,
+    "date": "2026-09-23",
+    "new": "8",
+    "old": "50.00",
+    "type": "SB",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 229336124396058,
+    "date": "2026-09-23",
+    "new": "8",
+    "old": "50.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 335882608432127,
+    "date": "2026-09-23",
+    "new": "6",
+    "old": "10.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 342565028938031,
+    "date": "2026-09-23",
+    "new": "15",
+    "old": "25.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 352450085706341,
+    "date": "2026-09-23",
+    "new": "25",
+    "old": "50.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 357091254956719,
+    "date": "2026-09-23",
+    "new": "25",
+    "old": "50.00",
+    "type": "SB",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 371856596921169,
+    "date": "2026-09-23",
+    "new": "1000",
+    "old": "1300.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 371856596921169,
+    "date": "2026-09-26",
+    "new": "950",
+    "old": "1000.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 373146321934138,
+    "date": "2026-09-23",
+    "new": "10",
+    "old": "40.00",
+    "type": "SB",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 422539177856583,
+    "date": "2026-09-23",
+    "new": "5",
+    "old": "30.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 427844200883958,
+    "date": "2026-09-23",
+    "new": "15",
+    "old": "200.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 461895755843971,
+    "date": "2026-09-23",
+    "new": "15",
+    "old": "25.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 467756726751377,
+    "date": "2026-09-23",
+    "new": "3",
+    "old": "10.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 481994108204980,
+    "date": "2026-09-23",
+    "new": "6",
+    "old": "30.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 500278370698932,
+    "date": "2026-09-23",
+    "new": "8",
+    "old": "40.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 502949976610627,
+    "date": "2026-09-23",
+    "new": "90",
+    "old": "70.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 513068897188585,
+    "date": "2026-09-26",
+    "new": "25",
+    "old": "50.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 513312603029006,
+    "date": "2026-09-23",
+    "new": "3",
+    "old": "200.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 524528268025893,
+    "date": "2026-09-23",
+    "new": "8",
+    "old": "20.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 530715208190122,
+    "date": "2026-09-23",
+    "new": "50",
+    "old": "30.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 547757691593122,
+    "date": "2026-09-23",
+    "new": "3",
+    "old": "50.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   },
+   {
+    "by": "manual",
+    "campaign": 61470839180260,
+    "date": "2026-09-23",
+    "new": "3",
+    "old": "10.00",
+    "type": "SP",
+    "we": "2026-09-27"
+   }
+  ]
+ }
+}
