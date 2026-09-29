@@ -196,6 +196,9 @@ table.dt td .sub{display:block;font-size:9px;color:var(--dim);font-weight:400;fo
 .pace-ok .pace-pct{color:var(--green)}.pace-warn .pace-pct{color:var(--amber)}.pace-crit .pace-pct{color:var(--red)}
 .pace-none{color:var(--dim);font-style:normal;}
 table.dt tr.pace-total td{border-top:1px solid var(--border2);color:var(--text);font-weight:600;background:var(--bg3);}
+.prelim{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:5px;font-family:var(--font-mono);font-size:10px;color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber-border);}
+.data-notes{list-style:none;margin:0 0 24px;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card);font-family:var(--font-mono);font-size:10.5px;color:var(--muted);line-height:1.7;}
+.data-notes li::before{content:'\2022';color:var(--accent);margin-right:8px;}
 .pace-note{font-family:var(--font-mono);font-size:10px;color:var(--dim);margin:-16px 0 24px;line-height:1.6;}
 </style>
 </head>
@@ -210,6 +213,7 @@ var MKT_META = /*__MKT_META__*/;
 var WEEKS = /*__WEEKS__*/;
 var MKT_KEYS = /*__MKT_KEYS__*/;
 var FX = /*__FX__*/;
+var NTB_MKTS = /*__NTB_MKTS__*/;  // markets whose ads report new-to-brand at all
 var PACING = /*__PACING__*/;  // [{month:'YYYY-MM', budgets:{tab:n}, spend:{tab:{spend,source}}, through:'YYYY-MM-DD'}] oldest first  // units of currency per 1 USD, by ISO code; MKT_META[k].code picks the rate
 var FX_MODE = 'USD';   // GLOBAL view is FX-normalised to USD
 var MKT_COLORS = {CC_US:"#4fc3f7",CC_CA:"#4ade80",CC_UK:"#a78bfa",CC_FR:"#fbbf24",CC_DE:"#2dd4bf",CC_IT:"#fb923c",CC_ES:"#f472b6",CC_NL:"#94a3b8",CC_MX:"#c084fc",CC_AUS:"#ef4444",CC_SA:"#eab308",CL_US:"#f59e0b",PP_US:"#34d399"};
@@ -247,6 +251,7 @@ const fP = n => n.toFixed(1)+'%';
 const fX = n => n.toFixed(1)+'x';
 const fN = n => n>=1000?(n/1000).toFixed(1)+'K':String(Math.round(n||0));
 
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function getCur(mk){return MKT_META[mk]?.currency||'$';}
 
 const EU_MKTS=['CC_FR','CC_DE','CC_IT','CC_ES','CC_NL'];
@@ -259,14 +264,14 @@ function filterMkts(ks){
 // ---- FX: every GLOBAL figure is converted to USD before summing (v3.9 fix 3)
 function fxRate(mk){const code=(MKT_META[mk]||{}).code||'USD';return FX[code]||1;}
 function toUSD(mk,v){return (v||0)/fxRate(mk);}
-const SUM_KEYS=['revenue','units','sessions','pageviews','adSpend','adSales','organicSales','ntbOrders','ntbSales'];
+const SUM_KEYS=['revenue','units','orders','sessions','pageviews','adSpend','adSales','organicSales','ntbOrders','ntbSales'];
 const MONEY_KEYS={revenue:1,adSpend:1,adSales:1,organicSales:1,ntbSales:1};
 function deriveAcct(t){
   t.cvr=t.sessions?((t.units/t.sessions)*100):0;
   t.acos=t.adSales?(t.adSpend/t.adSales*100):0;
   t.tacos=t.revenue?(t.adSpend/t.revenue*100):0;
   t.roas=t.adSpend?(t.adSales/t.adSpend):0;
-  t.ntbPct=t.units>0?((t.ntbOrders/t.units)*100):0;
+  t.ntbPct=t.orders>0?((t.ntbOrders/t.orders)*100):0;  // ad-attributed NTB orders / all orders
   return t;
 }
 function emptyAcct(){const t={};SUM_KEYS.forEach(k=>t[k]=0);return t;}
@@ -278,7 +283,7 @@ function getGlobalAcct(w){
   return deriveAcct(t);
 }
 
-// ---- Calendar helpers. A week belongs to the month that holds its Thursday (ISO rule); MTD/MONTH prorate boundary weeks by day (v3.9 fixes 1, 2, 5)
+// ---- Calendar helpers. A week belongs to the month that holds its Thursday (ISO rule); MONTH prorates boundary weeks by day (v3.9 fixes 1, 2, 5)
 function weSunday(w){
   if(w.we) return new Date(w.we+'T00:00:00Z');
   const m=(w.fullLabel||'').match(/([A-Za-z]+)\s+(\d+),\s+(\d{4})/);
@@ -294,22 +299,22 @@ function daysInMonthOfWeek(w,y,m){ // how many of the week's 7 days fall in mont
 function scaleMarkets(w,frac){ // proportional slice of a week's markets (all additive metrics)
   const out={};
   Object.keys(w.markets).forEach(k=>{const m=w.markets[k];const a={};SUM_KEYS.forEach(p=>a[p]=(m.acct[p]||0)*frac);
-    out[k]={acct:deriveAcct(a),products:(m.products||[]).map(p=>{const q=Object.assign({},p);['revenue','units','sessions','pageviews','adSpend','adSales','organic','ntbOrders','ntbSales'].forEach(x=>q[x]=(p[x]||0)*frac);return q;}),flags:[],source:m.source};});
+    out[k]={acct:deriveAcct(a),products:(m.products||[]).map(p=>{const q=Object.assign({},p);['revenue','units','orders','sessions','pageviews','adSpend','adSales','organic','ntbOrders','ntbSales'].forEach(x=>q[x]=(p[x]||0)*frac);return q;}),flags:[],source:m.source,ntbLoaded:m.ntbLoaded!==false};});
   return out;
 }
 function mergeMarkets(list){ // list of {markets} slices -> one summed markets object, products summed by name
   const out={};
   list.forEach(ms=>Object.keys(ms).forEach(k=>{
-    if(!out[k])out[k]={acct:emptyAcct(),products:[],flags:[],_p:{}};
-    const o=out[k],a=ms[k].acct;SUM_KEYS.forEach(p=>o.acct[p]+=(a[p]||0));
+    if(!out[k])out[k]={acct:emptyAcct(),products:[],flags:[],_p:{},_ntbOk:0,_ntbMiss:0};
+    const o=out[k],a=ms[k].acct;if(ms[k].ntbLoaded===false)o._ntbMiss++;else o._ntbOk++;SUM_KEYS.forEach(p=>o.acct[p]+=(a[p]||0));
     (ms[k].products||[]).forEach(p=>{
-      if(!o._p[p.name])o._p[p.name]={name:p.name,revenue:0,units:0,sessions:0,pageviews:0,adSpend:0,adSales:0,organic:0,ntbOrders:0,ntbSales:0,bsr:p.bsr,subcategory:p.subcategory,subcategoryBSR:p.subcategoryBSR,categoryBSR:p.categoryBSR};
-      const t=o._p[p.name];['revenue','units','sessions','pageviews','adSpend','adSales','organic','ntbOrders','ntbSales'].forEach(x=>t[x]+=(p[x]||0));
+      if(!o._p[p.name])o._p[p.name]={name:p.name,revenue:0,units:0,orders:0,sessions:0,pageviews:0,adSpend:0,adSales:0,organic:0,ntbOrders:0,ntbSales:0,bsr:p.bsr,subcategory:p.subcategory,subcategoryBSR:p.subcategoryBSR,categoryBSR:p.categoryBSR};
+      const t=o._p[p.name];['revenue','units','orders','sessions','pageviews','adSpend','adSales','organic','ntbOrders','ntbSales'].forEach(x=>t[x]+=(p[x]||0));
       t.bsr=p.bsr;t.subcategory=p.subcategory;t.subcategoryBSR=p.subcategoryBSR;t.categoryBSR=p.categoryBSR; // latest week wins (list is newest first)
     });
   }));
-  Object.keys(out).forEach(k=>{const o=out[k];deriveAcct(o.acct);
-    o.products=Object.values(o._p).map(p=>{p.cvr=p.sessions?((p.units/p.sessions)*100):0;p.acos=p.adSales?(p.adSpend/p.adSales*100):0;p.tacos=p.revenue?(p.adSpend/p.revenue*100):0;p.roas=p.adSpend?(p.adSales/p.adSpend):0;p.ntbPct=p.units?((p.ntbOrders/p.units)*100):0;p.status=(p.acos>30||p.tacos>15)?'crit':p.tacos>10?'warn':'ok';return p;});
+  Object.keys(out).forEach(k=>{const o=out[k];deriveAcct(o.acct);o.ntbLoaded=o._ntbOk>0;o.ntbPartial=o._ntbOk>0&&o._ntbMiss>0;delete o._ntbOk;delete o._ntbMiss;
+    o.products=Object.values(o._p).map(p=>{p.cvr=p.sessions?((p.units/p.sessions)*100):0;p.acos=p.adSales?(p.adSpend/p.adSales*100):0;p.tacos=p.revenue?(p.adSpend/p.revenue*100):0;p.roas=p.adSpend?(p.adSales/p.adSpend):0;p.ntbPct=p.orders?((p.ntbOrders/p.orders)*100):0;p.status=(p.acos>30||p.tacos>15)?'crit':p.tacos>10?'warn':'ok';return p;});
     delete o._p;});
   return out;
 }
@@ -328,15 +333,6 @@ function monthSlice(y,m,uptoWeekIdx,uptoDay){ // sum of prorated weeks of month 
   });
   return {markets:mergeMarkets(parts),days:days,weeks:parts.length};
 }
-function getMTDWeek(){ // month of the selected week, through the selected week
-  if(!WEEKS.length)return WEEKS[0];
-  const sel=WEEKS[wIdx],ym=weekMonth(sel);
-  const cur=monthSlice(ym.y,ym.m,wIdx,null);
-  const lastDay=weSunday(sel);const dayInMonth=(lastDay.getUTCMonth()===ym.m)?lastDay.getUTCDate():new Date(Date.UTC(ym.y,ym.m+1,0)).getUTCDate();
-  const py=ym.m===0?ym.y-1:ym.y,pm=ym.m===0?11:ym.m-1;
-  const prev=monthSlice(py,pm,null,dayInMonth);
-  return {label:'MTD '+MONTH_NAMES[ym.m],fullLabel:'Month-to-date: '+MONTH_NAMES[ym.m]+' '+ym.y+' through '+sel.label.replace('WE ','')+' ('+cur.days+' days)',range:'vs '+MONTH_NAMES[pm]+' 1-'+dayInMonth,markets:cur.markets,_prev:prev.markets,_partial:true};
-}
 function getMonthView(){ // full calendar month holding the selected week; partial months compare to the same day-range of the prior month
   if(!WEEKS.length)return WEEKS[0];
   const sel=WEEKS[wIdx],ym=weekMonth(sel);
@@ -345,9 +341,9 @@ function getMonthView(){ // full calendar month holding the selected week; parti
   const cur=monthSlice(ym.y,ym.m,null,null);
   const py=ym.m===0?ym.y-1:ym.y,pm=ym.m===0?11:ym.m-1;
   const prev=complete?monthSlice(py,pm,null,null):monthSlice(py,pm,null,cur.days);
-  return {label:MONTH_NAMES[ym.m]+' '+ym.y+(complete?'':' PARTIAL'),fullLabel:'Calendar month: '+MONTH_NAMES[ym.m]+' '+ym.y+(complete?'':' (PARTIAL, '+cur.days+' of '+dim+' days loaded)'),range:'vs '+MONTH_NAMES[pm]+(complete?'':' 1-'+cur.days),markets:cur.markets,_prev:prev.markets,_partial:!complete};
+  return {label:MONTH_NAMES[ym.m]+' '+ym.y+(complete?'':' PARTIAL'),fullLabel:'Calendar month: '+MONTH_NAMES[ym.m]+' '+ym.y+(complete?'':' (PARTIAL, '+cur.days+' of '+dim+' days loaded)')+' · weeks that span two months are split by day (estimate)',range:'vs '+MONTH_NAMES[pm]+(complete?'':' 1-'+cur.days),markets:cur.markets,_prev:prev.markets,_partial:!complete};
 }
-function getActiveWeek(){return viewMode==='MTD'?getMTDWeek():viewMode==='MONTH'?getMonthView():WEEKS[wIdx];}
+function getActiveWeek(){return viewMode==='MONTH'?getMonthView():WEEKS[wIdx];}
 function getPriorAcct(w,mk){ // comparison basis for the trend bar
   if(w._prev){const pw={markets:w._prev};return getMktData(pw,mk).acct;}
   const cmpSel=document.getElementById('weekCompare');
@@ -357,6 +353,23 @@ function getPriorAcct(w,mk){ // comparison basis for the trend bar
 }
 
 
+// NTB state: 'na' = market's ads do not report NTB; 'pending' = Reports Beta file not loaded yet (Monday build); 'partial' = some weeks/markets missing
+function ntbState(w,mk){
+  if(mk==='GLOBAL'){
+    const ks=filterMkts(Object.keys(w.markets)).filter(k=>NTB_MKTS.indexOf(k)!==-1);
+    if(!ks.length)return 'na';
+    const miss=ks.filter(k=>w.markets[k].ntbLoaded===false).length, part=ks.some(k=>w.markets[k].ntbPartial);
+    return miss===ks.length?'pending':(miss||part)?'partial':'ok';
+  }
+  if(NTB_MKTS.indexOf(mk)===-1)return 'na';
+  const m=w.markets[mk]; if(!m)return 'na';
+  return m.ntbLoaded===false?'pending':m.ntbPartial?'partial':'ok';
+}
+function ntbCell(st,txt){
+  if(st==='na')return '<span class="pace-none" title="Amazon does not report new-to-brand for this market\'s ad types">n/a</span>';
+  if(st==='pending')return '<span class="pace-none" title="Loads Thursday from the Reports Beta file">pending</span>';
+  return txt+(st==='partial'?'<span class="pace-none" title="Some weeks or markets not loaded yet">*</span>':'');
+}
 function getMktData(w,mk){
   if(mk==='GLOBAL') return {acct:getGlobalAcct(w),products:[],flags:[]};
   return w.markets[mk]||{acct:{revenue:0,units:0,sessions:0,pageviews:0,adSpend:0,adSales:0,organicSales:0,acos:0,tacos:0,roas:0,ntbOrders:0,ntbSales:0,ntbPct:0,cvr:0},products:[],flags:[]};
@@ -479,6 +492,7 @@ function renderKPIs(){
   const P=k=>p?(p[k]||0):null;
   const ts=a.tacos>15?'crit':a.tacos>10?'warn':'ok';
   const as=a.acos>30?'crit':'neutral';
+  const nst=ntbState(aw,mktKey), nOk=nst==='ok'&&cmpW&&ntbState(cmpW.markets?cmpW:{markets:cmpW},mktKey)==='ok';
   document.getElementById('kpiRow').innerHTML=[
     ['neutral','Total Revenue',fC(a.revenue,cur),dd(a.revenue,P('revenue')),p?'prev '+fC(P('revenue'),cur):(mktKey==='GLOBAL'?'USD equiv':'all products')],
     ['neutral','Units Sold',fN(a.units),dd(a.units,P('units')),p?'prev '+fN(P('units')):'all SKUs'],
@@ -488,8 +502,8 @@ function renderKPIs(){
     [as,'ACoS',fP(a.acos||0),dd(a.acos,P('acos'),true,true),'limit 30%'],
     ['neutral','ROAS',fX(a.roas||0),dd(a.roas,P('roas')),'ad return'],
     ['neutral','Ad Spend',fC(a.adSpend,cur),dd(a.adSpend,P('adSpend'),false,true),viewMode==='WEEKLY'?'this week':'this period'],
-    ['neutral','NTB Orders',fN(a.ntbOrders||0),dd(a.ntbOrders,P('ntbOrders')),'new to brand'],
-    ['neutral','NTB %',fP(a.ntbPct||0),dd(a.ntbPct,P('ntbPct'),true),'of units'],
+    ['neutral','NTB Orders',nst==='na'?'n/a':nst==='pending'?'Pending':fN(a.ntbOrders||0)+(nst==='partial'?'*':''),nOk?dd(a.ntbOrders,P('ntbOrders')):'',nst==='pending'?'loads Thursday':nst==='partial'?'* some data pending':'ad-attributed'],
+    ['neutral','NTB %',nst==='na'?'n/a':nst==='pending'?'Pending':fP(a.ntbPct||0)+(nst==='partial'?'*':''),nOk?dd(a.ntbPct,P('ntbPct'),true):'','of all orders'],
   ].map(([s,l,v,d,sub])=>`<div class="kpi ${s}"><div class="kpi-lbl">${l}</div><div class="kpi-val ${s==='crit'?'crit':s==='warn'?'warn':''}">${v}</div><div class="kpi-sub">${d}<span class="sub-lbl">${sub}</span></div></div>`).join('');
 }
 
@@ -558,7 +572,7 @@ function renderGlobalView(){
     if(!hasData(a)){html+=`<tr class="clickable" onclick="switchMkt('${k}')"><td>${MKT_META[k]?.label||k}<span class="sub">${MKT_META[k]?.name||''}</span></td><td colspan="13" style="text-align:left;color:var(--muted)">No data for this period</td></tr>`;return;}
     const ts=a.tacos>15?'crit':a.tacos>10?'warn':'ok';
     const org=a.organicSales!=null?a.organicSales:((a.revenue||0)-(a.adSales||0));
-    html+=`<tr class="clickable" onclick="switchMkt('${k}')"><td>${MKT_META[k]?.label||k}<span class="sub">${MKT_META[k]?.name||''}</span></td><td>${pa?fCF(pa.revenue||0,cur):'—'}</td><td>${fCF(a.revenue||0,cur)}</td><td>${dd(a.revenue,pa&&pa.revenue)}</td><td>${fN(a.units||0)} ${dd(a.units,pa&&pa.units)}</td><td>${fN(a.sessions||0)}</td><td>${fP(a.cvr||0)}</td><td>${fCF(a.adSpend||0,cur)}</td><td>${fCF(a.adSales||0,cur)}</td><td>${fCF(Math.round(org),cur)}</td><td><span class="pill ${ts}">${fP(a.tacos||0)}</span> ${dd(a.tacos,pa&&pa.tacos,true,true)}</td><td>${fP(a.acos||0)}</td><td>${fN(a.ntbOrders||0)}</td><td>${fP(a.ntbPct||0)}</td></tr>`;
+    html+=`<tr class="clickable" onclick="switchMkt('${k}')"><td>${MKT_META[k]?.label||k}<span class="sub">${MKT_META[k]?.name||''}</span></td><td>${pa?fCF(pa.revenue||0,cur):'—'}</td><td>${fCF(a.revenue||0,cur)}</td><td>${dd(a.revenue,pa&&pa.revenue)}</td><td>${fN(a.units||0)} ${dd(a.units,pa&&pa.units)}</td><td>${fN(a.sessions||0)}</td><td>${fP(a.cvr||0)}</td><td>${fCF(a.adSpend||0,cur)}</td><td>${fCF(a.adSales||0,cur)}</td><td>${fCF(Math.round(org),cur)}</td><td><span class="pill ${ts}">${fP(a.tacos||0)}</span> ${dd(a.tacos,pa&&pa.tacos,true,true)}</td><td>${fP(a.acos||0)}</td><td>${ntbCell(ntbState(w,k),fN(a.ntbOrders||0))}</td><td>${ntbCell(ntbState(w,k),fP(a.ntbPct||0))}</td></tr>`;
   });
   html+='</tbody></table></div>';
 
@@ -606,12 +620,13 @@ function renderMktView(){
       const porg=pp?(pp.organic!=null?pp.organic:((pp.revenue||0)-(pp.adSales||0))):null;
       const bsr=(p.categoryBSR||p.bsr);
       const pbsr=pp?(pp.categoryBSR||pp.bsr):null;
-      html+=`<tr><td>${p.name}${p.subcategory?`<span class="sub">${p.subcategory}</span>`:''}</td><td>${pp?fCF(pp.revenue||0,cur):'\u2014'}</td><td>${fCF(p.revenue||0,cur)}</td><td>${dd(p.revenue,pp&&pp.revenue)}</td><td>${fN(p.units||0)} ${dd(p.units,pp&&pp.units)}</td><td>${fN(p.sessions||0)} ${dd(p.sessions,pp&&pp.sessions)}</td><td>${fP(p.cvr||0)} ${dd(p.cvr,pp&&pp.cvr,true)}</td><td>${fCF(p.adSpend||0,cur)} ${dd(p.adSpend,pp&&pp.adSpend,false,true)}</td><td>${fCF(p.adSales||0,cur)} ${dd(p.adSales,pp&&pp.adSales)}</td><td>${fCF(Math.round(org),cur)} ${dd(org,porg)}</td><td><span class="pill ${ts}">${fP(p.tacos||0)}</span> ${dd(p.tacos,pp&&pp.tacos,true,true)}</td><td>${fP(p.acos||0)} ${dd(p.acos,pp&&pp.acos,true,true)}</td><td>${fN(p.ntbOrders||0)} ${dd(p.ntbOrders,pp&&pp.ntbOrders)}</td><td>${bsr?'#'+bsr:'\u2014'}${p.subcategoryBSR?` <span class="sub" style="display:inline;color:var(--accent)">(#${p.subcategoryBSR})</span>`:''} ${bsr&&pbsr?dd(bsr,pbsr,false,true):''}</td></tr>`;
+      html+=`<tr><td>${esc(p.name)}${p.subcategory?`<span class="sub">${esc(p.subcategory)}</span>`:''}</td><td>${pp?fCF(pp.revenue||0,cur):'\u2014'}</td><td>${fCF(p.revenue||0,cur)}</td><td>${dd(p.revenue,pp&&pp.revenue)}</td><td>${fN(p.units||0)} ${dd(p.units,pp&&pp.units)}</td><td>${fN(p.sessions||0)} ${dd(p.sessions,pp&&pp.sessions)}</td><td>${fP(p.cvr||0)} ${dd(p.cvr,pp&&pp.cvr,true)}</td><td>${fCF(p.adSpend||0,cur)} ${dd(p.adSpend,pp&&pp.adSpend,false,true)}</td><td>${fCF(p.adSales||0,cur)} ${dd(p.adSales,pp&&pp.adSales)}</td><td>${fCF(Math.round(org),cur)} ${dd(org,porg)}</td><td><span class="pill ${ts}">${fP(p.tacos||0)}</span> ${dd(p.tacos,pp&&pp.tacos,true,true)}</td><td>${fP(p.acos||0)} ${dd(p.acos,pp&&pp.acos,true,true)}</td><td>${ntbCell(ntbState(w,mktKey),fN(p.ntbOrders||0)+' '+dd(p.ntbOrders,pp&&pp.ntbOrders))}</td><td>${bsr?'#'+bsr:'\u2014'}${p.subcategoryBSR?` <span class="sub" style="display:inline;color:var(--accent)">(#${p.subcategoryBSR})</span>`:''} ${bsr&&pbsr?dd(bsr,pbsr,false,true):''}</td></tr>`;
     });
     html+='</tbody></table></div>';
   } else {
     html+='<div class="sec" style="color:var(--muted);margin:40px 0">Account-level data only. No product breakdown available for this marketplace.</div>';
   }
+  if((d.flags||[]).length)html+=`<div class="sec">Data notes</div><ul class="data-notes">${d.flags.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`;
 
   document.getElementById('mainContent').innerHTML=html;
 }
@@ -677,7 +692,12 @@ function renderPeriodHead(){
   const el=document.getElementById('periodHead');if(!el)return;
   const w=getActiveWeek();
   const cmp=w._prev?(w.range||''):('vs '+cmpLabelStr(w));
-  el.innerHTML=`<h1>${w.label} <span>${cmp}</span></h1><div class="sub">${w.fullLabel}</div>`;
+  let pre='';
+  if(viewMode==='WEEKLY'&&w.generated_at){ // built before the Thursday re-pull: sessions, ad attribution and NTB still move
+    const thu=new Date(weSunday(w));thu.setUTCDate(thu.getUTCDate()+4);thu.setUTCHours(12);
+    if(new Date(w.generated_at)<thu)pre='<div class="prelim">Preliminary: Monday pull. Sessions, ad attribution and NTB settle in Thursday\'s re-pull.</div>';
+  }
+  el.innerHTML=`<h1>${w.label} <span>${cmp}</span></h1><div class="sub">${w.fullLabel}</div>${pre}`;
 }
 function render(){
   if(WEEKS.length===0){document.getElementById('mainContent').innerHTML='<div class="sec" style="margin:60px 0;text-align:center">No data loaded yet.</div>';return;}
@@ -696,7 +716,6 @@ function weekPrev(){if(wIdx<WEEKS.length-1){wIdx++;render();}}
 function weekNext(){if(wIdx>0){wIdx--;render();}}
 function setBrand(b){brandFilter=b;render();}
 function setView(v){viewMode=v;render();}
-function toggleView(){setView(viewMode==='WEEKLY'?'MTD':'WEEKLY');}
 
 function renderFilterBar(){
   const fb=document.getElementById('filterBar');
@@ -704,7 +723,6 @@ function renderFilterBar(){
   fb.innerHTML=`
     <div class="filter-group"><span class="filter-label">View</span>
       <button class="filter-btn ${viewMode==='WEEKLY'?'active':''}" onclick="setView('WEEKLY')">WEEKLY</button>
-      <button class="filter-btn ${viewMode==='MTD'?'active':''}" onclick="setView('MTD')">MTD</button>
       <button class="filter-btn ${viewMode==='MONTH'?'active':''}" onclick="setView('MONTH')">MONTH</button>
     </div>
     <div class="filter-group"><span class="filter-label">Brands</span>

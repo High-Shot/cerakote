@@ -10,6 +10,7 @@ The NIC and INTL repos stay the data pipelines. This repo only renders. Nothing 
 Usage: python3 scripts/build.py --nic ../NIC --intl ../INTL
 """
 import json, os, glob, sys, shutil, datetime as dt
+from zoneinfo import ZoneInfo
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -75,7 +76,7 @@ SHELL_CSS = """
 def shell_header(page, meta_html='', right_html=''):
     on = ' class="on" aria-current="page"'
     nav = ''.join(f'<a href="../{k}/"{on if k == page else ""}>{n}</a>' for k, n in PAGES)
-    built = dt.datetime.now(dt.timezone(dt.timedelta(hours=-5))).strftime('%b %-d, %Y %-I:%M %p CT')
+    built = dt.datetime.now(ZoneInfo('America/Chicago')).strftime('%b %-d, %Y %-I:%M %p CT')  # CDT/CST aware
     return (f'<header class="header">\n  <div class="header-left">\n'
             f'    <a href="https://www.nicindustries.com/" target="_blank" rel="noopener" class="brand-logo" aria-label="NIC Industries">{LOGO}</a>\n'
             f'    <div class="divider-v"></div>\n    <nav class="site-nav" aria-label="Dashboards">{nav}</nav>\n'
@@ -91,14 +92,17 @@ def swap_header(tpl, header):
 
 def add_css(tpl):
     i = tpl.index('</style>')
-    return tpl[:i] + SHELL_CSS + tpl[i:]
+    tpl = tpl[:i] + SHELL_CSS + tpl[i:]
+    if 'name="robots"' not in tpl:  # client data: keep it out of search indexes
+        tpl = tpl.replace('<meta charset="UTF-8">', '<meta charset="UTF-8">\n<meta name="robots" content="noindex, nofollow">', 1)
+    return tpl
 
 
 # ---------------------------------------------------------------- sales
 def build_sales():
     accounts = json.load(open(os.path.join(NIC, 'config', 'accounts.json')))
     fx = {k: v for k, v in json.load(open(os.path.join(NIC, 'config', 'fx.json'))).items() if not k.startswith('_')}
-    keys_ = ('name', 'revenue', 'units', 'sessions', 'pageviews', 'cvr', 'adSpend', 'adSales', 'organic', 'acos', 'tacos', 'roas',
+    keys_ = ('name', 'revenue', 'units', 'orders', 'sessions', 'pageviews', 'cvr', 'adSpend', 'adSales', 'organic', 'acos', 'tacos', 'roas',
              'ntbOrders', 'ntbSales', 'ntbPct', 'bsr', 'status', 'subcategory', 'subcategoryBSR', 'categoryBSR')
     files = sorted(glob.glob(os.path.join(NIC, 'data', 'weeks', 'WE_*.json')))[-MAX_WEEKS:]
     archived = {a['tab'] for a in accounts if a.get('archived')}
@@ -106,9 +110,15 @@ def build_sales():
     for p in reversed(files):
         w = json.load(open(p))
         weeks.append({'id': w['id'], 'label': w['label'], 'range': w['range'], 'fullLabel': w['fullLabel'], 'we': w['we'],
+                      'generated_at': w.get('generated_at'),
                       'markets': {t: {'acct': m['acct'], 'products': [{k: pr.get(k) for k in keys_} for pr in m['products']],
-                                      'flags': m['flags'], 'source': m.get('source')}
+                                      'flags': m['flags'], 'source': m.get('source'),
+                                      # NTB comes from the Wednesday Reports Beta email; a Monday build has none yet
+                                      'ntbLoaded': not any('NTB not loaded' in f for f in m['flags'])}
                                   for t, m in w['markets'].items() if t not in archived}})
+    # Amazon only reports NTB on some ad types/markets (SB/SD, plus SP in the US). A market that never shows an NTB
+    # order in any loaded week does not report it: the page shows n/a there instead of a misleading 0.
+    ntb_markets = sorted({t for w in weeks for t, m in w['markets'].items() if m['ntbLoaded'] and (m['acct'].get('ntbOrders') or 0) > 0})
     meta = {'GLOBAL': {'name': 'Global (All Markets)', 'currency': '', 'flag': ''}}
     for a in accounts:
         meta[a['tab']] = {'name': a['name'], 'currency': a['currency'], 'flag': a['market'], 'label': a['label'], 'code': a['code']}
@@ -132,9 +142,9 @@ def build_sales():
     pacing.sort(key=lambda x: x['month'])
 
     tpl = read(os.path.join(ROOT, 'pages', 'sales.html'))
-    tpl = add_css(swap_header(tpl, shell_header('sales', '<div class="divider-v"></div><div class="header-title">Weekly <span>Sales</span></div>')))
+    tpl = add_css(swap_header(tpl, shell_header('sales')))
     html = (tpl.replace('/*__MKT_META__*/', js(meta)).replace('/*__MKT_KEYS__*/', js(mkeys)).replace('/*__FX__*/', js(fx))
-            .replace('/*__WEEKS__*/', js(weeks)).replace('/*__PACING__*/', js(pacing)))
+            .replace('/*__WEEKS__*/', js(weeks)).replace('/*__PACING__*/', js(pacing)).replace('/*__NTB_MKTS__*/', js(ntb_markets)))
     write(os.path.join(ROOT, 'sales', 'index.html'), html)
 
 
@@ -153,7 +163,7 @@ def build_health():
                 a.pop(k, None)
         snaps.append(s)
     tpl = read(os.path.join(ROOT, 'pages', 'health.html'))
-    meta = ('<div class="divider-v"></div><div class="header-title">Account <span>Health</span></div><div class="divider-v"></div>'
+    meta = ('<div class="divider-v"></div>'
             '<div class="header-meta"><div class="lbl">Week</div><div class="val" id="hdr-week">—</div></div>'
             '<div class="header-meta"><div class="lbl">Read</div><div class="val" id="hdr-gen">—</div></div>')
     tpl = add_css(swap_header(tpl, shell_header('health', meta, '<span id="hdr-sources" hidden></span>')))
@@ -164,7 +174,7 @@ def build_health():
 # ---------------------------------------------------------------- inventory
 def build_inventory():
     tpl = read(os.path.join(ROOT, 'pages', 'health.html'))  # same head, CSS and ribbon as the health page
-    meta = ('<div class="divider-v"></div><div class="header-title">Q4 <span>Inventory</span></div><div class="divider-v"></div>'
+    meta = ('<div class="divider-v"></div>'
             '<div class="header-meta"><div class="lbl">Projection</div><div class="val" id="hdr-week">—</div></div>'
             '<div class="header-meta"><div class="lbl">Data</div><div class="val" id="hdr-gen">—</div></div>')
     tpl = add_css(swap_header(tpl, shell_header('inventory', meta)))
@@ -188,7 +198,7 @@ def build_inventory():
     dst = os.path.join(ROOT, 'inventory', 'files')
     if os.path.isdir(src):
         shutil.rmtree(dst, ignore_errors=True)
-        shutil.copytree(src, dst)
+        shutil.copytree(src, dst, dirs_exist_ok=True)  # survives a folder where deletes are blocked
 
 
 def build_root():
