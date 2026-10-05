@@ -35,7 +35,7 @@ No tab for MONTH yet: skip this step and do not write a file. The Sales page the
 
 ## 4. Spend, 1st of MONTH through THROUGH
 - Scale Insights, Cerakote Auto US, CA, UK, DE, FR, IT, ES, NL, AU: `mcp__Scale_Insights__get_campaign_performance` with `country, start_date, end_date, mode: "raw", count: 1, sort_by: "cost"`; use `agg.TotalSpend`. (AU key is CC_AUS.)
-- Helium10, CL_US / PP_US / CC_SA: `mcp__Helium10__get_account_profit_and_loss_summary_series`, `granularity: "day"`, sum abs(`advertising_cost`) over the window. Seller ids: CL_US A1KUYEQ8RRQVVI (US), PP_US A21D21T8B6U09C (US), CC_SA A3BMUMIXNXIR6G (SA, `currency: "SAR"`).
+- Helium10, CL_US / PP_US / CC_SA: from the shared H10 cache, NEVER a Helium10 call. On the Mac (Desktop Commander `start_process` or osascript `do shell script`): `/opt/homebrew/bin/python3 "$HOME/Documents/Claude/Projects/Cerakote Management/h10-cache/bin/query.py" spend <1st of MONTH> <THROUGH> CL_US PP_US CC_SA`. It prints the cache run date and the summed daily `advertising_cost` per tab (CC_SA in SAR). A tab printed as `n/a` (THROUGH after the cache's last day, or cache missing) is left out and flagged; never estimate it. Cache spec: `Cerakote Management/h10-cache/README.md`.
 ```
 python3 scripts/pacing.py spend $MONTH $THROUGH CC_US=<n>:si CC_CA=<n>:si ... CL_US=<n>:h10 PP_US=<n>:h10 CC_SA=<n>:h10
 ```
