@@ -434,21 +434,23 @@ function getMktData(w,mk){
 // Spend up while TACoS is on goal = green. ROAS takes the 5.0 floor. Sales/units/sessions stay directional.
 function tacosSt(t){return t>15?'crit':t>10?'warn':'ok';}
 function roasSt(r){return r>=5?'ok':'crit';}
-function delta(val,prev,higherIsBad,pp){
+// Sales/units/sessions/CVR: a drop under 10% reads yellow when TACoS and ROAS are both on goal; 10%+ stays red.
+function effOk(a){return tacosSt(a.tacos||0)==='ok'&&roasSt(a.roas||0)==='ok';}
+function delta(val,prev,higherIsBad,pp,soft){
   if(prev===undefined||prev===null||prev===0)return '<span class="trend-delta neutral">—</span>';
   const d=val-prev;
   if(Math.abs(d)<0.01)return '<span class="trend-delta neutral">0'+(pp?' pp':'%')+'</span>';
   const a=pp?Math.abs(d).toFixed(1)+' pp':Math.abs((d/prev)*100).toFixed(1)+'%';
-  const cls=typeof higherIsBad==='string'?'st-'+higherIsBad:higherIsBad?(d>0?'up-bad':'down-good'):(d>0?'up-good':'down-bad');
+  const cls=(soft&&d<0&&Math.abs(d/prev)<0.10)?'st-warn':typeof higherIsBad==='string'?'st-'+higherIsBad:higherIsBad?(d>0?'up-bad':'down-good'):(d>0?'up-good':'down-bad');
   return `<span class="trend-delta ${cls}">${d>0?'▲':'▼'} ${a}</span>`;
 }
 
 // v4: compact delta chip for KPI tiles and table cells
-function dd(val,prev,rate,bad){
+function dd(val,prev,rate,bad,soft){
   if(prev===undefined||prev===null||(!rate&&prev===0))return '<span class="d neutral">—</span>';
   const d=val-prev;
   if(Math.abs(d)<(rate?0.05:0.005))return '<span class="d neutral">0</span>';
-  const cls=typeof bad==='string'?'st-'+bad:bad?(d>0?'up-bad':'down-good'):(d>0?'up-good':'down-bad');
+  const cls=(soft&&d<0&&prev&&Math.abs(d/prev)<0.10)?'st-warn':typeof bad==='string'?'st-'+bad:bad?(d>0?'up-bad':'down-good'):(d>0?'up-good':'down-bad');
   const txt=rate?(d>0?'+':'')+d.toFixed(1)+' pp':(d>0?'+':'')+(d/prev*100).toFixed(1)+'%';
   return `<span class="d ${cls}">${d>0?'▲':'▼'} ${txt}</span>`;
 }
@@ -532,10 +534,10 @@ function renderTrendBar(){
   const pw=getPriorAcct(w,mktKey);
   const cur=mktKey==='GLOBAL'?'$':getCur(mktKey);
   document.getElementById('trendBar').innerHTML=[
-    ['Revenue',fC(a.revenue,cur),delta(a.revenue,pw?.revenue,false)],
-    ['Units',fN(a.units),delta(a.units,pw?.units,false)],
-    ['Sessions',fN(a.sessions),delta(a.sessions,pw?.sessions,false)],
-    ['CVR',fP(a.cvr||0),delta(a.cvr,pw?.cvr,false,true)],
+    ['Revenue',fC(a.revenue,cur),delta(a.revenue,pw?.revenue,false,undefined,effOk(a))],
+    ['Units',fN(a.units),delta(a.units,pw?.units,false,undefined,effOk(a))],
+    ['Sessions',fN(a.sessions),delta(a.sessions,pw?.sessions,false,undefined,effOk(a))],
+    ['CVR',fP(a.cvr||0),delta(a.cvr,pw?.cvr,false,true,effOk(a))],
     ['Ad Spend',fC(a.adSpend,cur),delta(a.adSpend,pw?.adSpend,tacosSt(a.tacos||0))],
     ['TACoS',fP(a.tacos||0),delta(a.tacos,pw?.tacos,tacosSt(a.tacos||0),true)],
     ['ACoS',fP(a.acos||0),delta(a.acos,pw?.acos,tacosSt(a.tacos||0),true)],
@@ -553,10 +555,10 @@ function renderKPIs(){
   const as=a.acos>30?'crit':'neutral';
   const nst=ntbState(aw,mktKey), nOk=nst==='ok'&&cmpW&&ntbState(cmpW.markets?cmpW:{markets:cmpW},mktKey)==='ok';
   document.getElementById('kpiRow').innerHTML=[
-    ['neutral','Total Revenue',fC(a.revenue,cur),dd(a.revenue,P('revenue')),p?'prev '+fC(P('revenue'),cur):(mktKey==='GLOBAL'?'USD equiv':'all products')],
-    ['neutral','Units Sold',fN(a.units),dd(a.units,P('units')),p?'prev '+fN(P('units')):'all SKUs'],
-    ['neutral','Sessions',fN(a.sessions),dd(a.sessions,P('sessions')),p?'prev '+fN(P('sessions')):'total traffic'],
-    ['neutral','Blended CVR',fP(a.cvr||0),dd(a.cvr,P('cvr'),true),'units/sessions'],
+    ['neutral','Total Revenue',fC(a.revenue,cur),dd(a.revenue,P('revenue'),false,false,effOk(a)),p?'prev '+fC(P('revenue'),cur):(mktKey==='GLOBAL'?'USD equiv':'all products')],
+    ['neutral','Units Sold',fN(a.units),dd(a.units,P('units'),false,false,effOk(a)),p?'prev '+fN(P('units')):'all SKUs'],
+    ['neutral','Sessions',fN(a.sessions),dd(a.sessions,P('sessions'),false,false,effOk(a)),p?'prev '+fN(P('sessions')):'total traffic'],
+    ['neutral','Blended CVR',fP(a.cvr||0),dd(a.cvr,P('cvr'),true,false,effOk(a)),'units/sessions'],
     [ts,'TACoS',fP(a.tacos||0),dd(a.tacos,P('tacos'),true,ts),'target <10%'],
     [as,'ACoS',fP(a.acos||0),dd(a.acos,P('acos'),true,ts),'limit 30%'],
     [roasSt(a.roas||0),'ROAS',fX(a.roas||0),dd(a.roas,P('roas'),false,roasSt(a.roas||0)),'floor 5.0x'],
@@ -676,7 +678,7 @@ function renderGlobalView(){
     if(!hasData(a)){html+=`<tr class="clickable" onclick="switchMkt('${k}')"><td>${MKT_META[k]?.label||k}<span class="sub">${MKT_META[k]?.name||''}</span></td><td colspan="13" style="text-align:left;color:var(--muted)">No data for this period</td></tr>`;return;}
     const ts=a.tacos>15?'crit':a.tacos>10?'warn':'ok';
     const org=a.organicSales!=null?a.organicSales:((a.revenue||0)-(a.adSales||0));
-    html+=`<tr class="clickable" onclick="switchMkt('${k}')"><td>${MKT_META[k]?.label||k}<span class="sub">${MKT_META[k]?.name||''}</span>${oosChip(k)}</td><td>${pa?fCF(pa.revenue||0,cur):'—'}</td><td>${fCF(a.revenue||0,cur)}</td><td>${dd(a.revenue,pa&&pa.revenue)}</td><td>${fN(a.units||0)} ${dd(a.units,pa&&pa.units)}</td><td>${fN(a.sessions||0)}</td><td>${fP(a.cvr||0)}</td><td>${fCF(a.adSpend||0,cur)}</td><td>${fCF(a.adSales||0,cur)}</td><td>${fCF(Math.round(org),cur)}</td><td><span class="pill ${ts}">${fP(a.tacos||0)}</span> ${dd(a.tacos,pa&&pa.tacos,true,ts)}</td><td>${fP(a.acos||0)}</td><td>${ntbCell(ntbState(w,k),fN(a.ntbOrders||0))}</td><td>${ntbCell(ntbState(w,k),fP(a.ntbPct||0))}</td></tr>`;
+    html+=`<tr class="clickable" onclick="switchMkt('${k}')"><td>${MKT_META[k]?.label||k}<span class="sub">${MKT_META[k]?.name||''}</span>${oosChip(k)}</td><td>${pa?fCF(pa.revenue||0,cur):'—'}</td><td>${fCF(a.revenue||0,cur)}</td><td>${dd(a.revenue,pa&&pa.revenue,false,false,effOk(a))}</td><td>${fN(a.units||0)} ${dd(a.units,pa&&pa.units,false,false,effOk(a))}</td><td>${fN(a.sessions||0)}</td><td>${fP(a.cvr||0)}</td><td>${fCF(a.adSpend||0,cur)}</td><td>${fCF(a.adSales||0,cur)}</td><td>${fCF(Math.round(org),cur)}</td><td><span class="pill ${ts}">${fP(a.tacos||0)}</span> ${dd(a.tacos,pa&&pa.tacos,true,ts)}</td><td>${fP(a.acos||0)}</td><td>${ntbCell(ntbState(w,k),fN(a.ntbOrders||0))}</td><td>${ntbCell(ntbState(w,k),fP(a.ntbPct||0))}</td></tr>`;
   });
   html+='</tbody></table></div>';
 
@@ -725,7 +727,7 @@ function renderMktView(){
       const bsr=(p.categoryBSR||p.bsr);
       const pbsr=pp?(pp.categoryBSR||pp.bsr):null;
       const oo=oosProduct(mktKey,p.name);
-      html+=`<tr><td>${esc(p.name)}${oo?`<span class="oos-chip${oo.main?'':' var'}" title="${esc(oo.name)} (${oo.asin}): ${oo.hold?'listing on hold':'out of stock'} since ${fDay(oo.since)}, est. $${fN(oo.lost_usd)} lost so far">${oo.main?(oo.hold?'HOLD':'OUT'):'A variant out'} since ${fDay(oo.since)}</span>`:''}${p.subcategory?`<span class="sub">${esc(p.subcategory)}</span>`:''}</td><td>${pp?fCF(pp.revenue||0,cur):'\u2014'}</td><td>${fCF(p.revenue||0,cur)}</td><td>${dd(p.revenue,pp&&pp.revenue)}</td><td>${fN(p.units||0)} ${dd(p.units,pp&&pp.units)}</td><td>${fN(p.sessions||0)} ${dd(p.sessions,pp&&pp.sessions)}</td><td>${fP(p.cvr||0)} ${dd(p.cvr,pp&&pp.cvr,true)}</td><td>${fCF(p.adSpend||0,cur)} ${dd(p.adSpend,pp&&pp.adSpend,false,ts)}</td><td>${fCF(p.adSales||0,cur)} ${dd(p.adSales,pp&&pp.adSales)}</td><td>${fCF(Math.round(org),cur)} ${dd(org,porg)}</td><td><span class="pill ${ts}">${fP(p.tacos||0)}</span> ${dd(p.tacos,pp&&pp.tacos,true,ts)}</td><td>${fP(p.acos||0)} ${dd(p.acos,pp&&pp.acos,true,ts)}</td><td>${ntbCell(ntbState(w,mktKey),fN(p.ntbOrders||0)+' '+dd(p.ntbOrders,pp&&pp.ntbOrders))}</td><td>${bsr?'#'+bsr:'\u2014'}${p.subcategoryBSR?` <span class="sub" style="display:inline;color:var(--accent)">(#${p.subcategoryBSR})</span>`:''} ${bsr&&pbsr?dd(bsr,pbsr,false,true):''}</td></tr>`;
+      html+=`<tr><td>${esc(p.name)}${oo?`<span class="oos-chip${oo.main?'':' var'}" title="${esc(oo.name)} (${oo.asin}): ${oo.hold?'listing on hold':'out of stock'} since ${fDay(oo.since)}, est. $${fN(oo.lost_usd)} lost so far">${oo.main?(oo.hold?'HOLD':'OUT'):'A variant out'} since ${fDay(oo.since)}</span>`:''}${p.subcategory?`<span class="sub">${esc(p.subcategory)}</span>`:''}</td><td>${pp?fCF(pp.revenue||0,cur):'\u2014'}</td><td>${fCF(p.revenue||0,cur)}</td><td>${dd(p.revenue,pp&&pp.revenue,false,false,ts==='ok')}</td><td>${fN(p.units||0)} ${dd(p.units,pp&&pp.units,false,false,ts==='ok')}</td><td>${fN(p.sessions||0)} ${dd(p.sessions,pp&&pp.sessions,false,false,ts==='ok')}</td><td>${fP(p.cvr||0)} ${dd(p.cvr,pp&&pp.cvr,true,false,ts==='ok')}</td><td>${fCF(p.adSpend||0,cur)} ${dd(p.adSpend,pp&&pp.adSpend,false,ts)}</td><td>${fCF(p.adSales||0,cur)} ${dd(p.adSales,pp&&pp.adSales)}</td><td>${fCF(Math.round(org),cur)} ${dd(org,porg)}</td><td><span class="pill ${ts}">${fP(p.tacos||0)}</span> ${dd(p.tacos,pp&&pp.tacos,true,ts)}</td><td>${fP(p.acos||0)} ${dd(p.acos,pp&&pp.acos,true,ts)}</td><td>${ntbCell(ntbState(w,mktKey),fN(p.ntbOrders||0)+' '+dd(p.ntbOrders,pp&&pp.ntbOrders))}</td><td>${bsr?'#'+bsr:'\u2014'}${p.subcategoryBSR?` <span class="sub" style="display:inline;color:var(--accent)">(#${p.subcategoryBSR})</span>`:''} ${bsr&&pbsr?dd(bsr,pbsr,false,true):''}</td></tr>`;
     });
     html+='</tbody></table></div>';
   } else {
@@ -904,7 +906,7 @@ window.addEventListener('load',()=>render());
     <nav class="site-nav" aria-label="Dashboards"><a href="../sales/" class="on" aria-current="page">Sales</a><a href="../health/">Account Health</a><a href="../inventory/">Inventory</a></nav>
     
   </div>
-  <div class="header-right"><div class="asof"><div class="lbl">Updated</div><div class="val">Oct 8, 2026 10:15 AM CT</div></div></div>
+  <div class="header-right"><div class="asof"><div class="lbl">Updated</div><div class="val">Oct 8, 2026 10:26 AM CT</div></div></div>
 </header>
 
 <nav class="nav-row">
