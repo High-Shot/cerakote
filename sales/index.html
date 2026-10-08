@@ -82,6 +82,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font-body);font-si
 .down-bad{color:var(--red);background:var(--red-bg);}
 .down-good{color:var(--green);background:var(--green-bg);}
 .neutral{color:var(--dim);background:var(--bg3);}
+.st-ok{color:var(--green);background:var(--green-bg);}.st-warn{color:var(--amber);background:var(--amber-bg);}.st-crit{color:var(--red);background:var(--red-bg);}
 .trend-div{width:1px;height:18px;background:var(--border);}
 
 /* Layout */
@@ -182,7 +183,7 @@ table.dt td .sub{display:block;font-size:9px;color:var(--dim);font-weight:400;fo
 .pill{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600;}
 .pill.ok{background:var(--green-bg);color:var(--green);}.pill.warn{background:var(--amber-bg);color:var(--amber);}.pill.crit{background:var(--red-bg);color:var(--red);}
 .d{font-family:var(--font-mono);font-size:10px;font-weight:600;white-space:nowrap;}
-.d.up-good,.d.down-good{color:var(--green);}.d.up-bad,.d.down-bad{color:var(--red);}.d.neutral{color:var(--dim);}
+.d.up-good,.d.down-good{color:var(--green);}.d.up-bad,.d.down-bad{color:var(--red);}.d.neutral{color:var(--dim);}.d.st-ok{color:var(--green);background:none;}.d.st-warn{color:var(--amber);background:none;}.d.st-crit{color:var(--red);background:none;}
 
 /* ---- budget pacing ---- */
 .pace-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px;}
@@ -429,12 +430,16 @@ function getMktData(w,mk){
   return w.markets[mk]||{acct:{revenue:0,units:0,sessions:0,pageviews:0,adSpend:0,adSales:0,organicSales:0,acos:0,tacos:0,roas:0,ntbOrders:0,ntbSales:0,ntbPct:0,cvr:0},products:[],flags:[]};
 }
 
+// Cost metrics (spend, TACoS, ACoS) take the TACoS goal colour, not the direction of change.
+// Spend up while TACoS is on goal = green. ROAS takes the 5.0 floor. Sales/units/sessions stay directional.
+function tacosSt(t){return t>15?'crit':t>10?'warn':'ok';}
+function roasSt(r){return r>=5?'ok':'crit';}
 function delta(val,prev,higherIsBad,pp){
   if(prev===undefined||prev===null||prev===0)return '<span class="trend-delta neutral">—</span>';
   const d=val-prev;
   if(Math.abs(d)<0.01)return '<span class="trend-delta neutral">0'+(pp?' pp':'%')+'</span>';
   const a=pp?Math.abs(d).toFixed(1)+' pp':Math.abs((d/prev)*100).toFixed(1)+'%';
-  const cls=higherIsBad?(d>0?'up-bad':'down-good'):(d>0?'up-good':'down-bad');
+  const cls=typeof higherIsBad==='string'?'st-'+higherIsBad:higherIsBad?(d>0?'up-bad':'down-good'):(d>0?'up-good':'down-bad');
   return `<span class="trend-delta ${cls}">${d>0?'▲':'▼'} ${a}</span>`;
 }
 
@@ -443,7 +448,7 @@ function dd(val,prev,rate,bad){
   if(prev===undefined||prev===null||(!rate&&prev===0))return '<span class="d neutral">—</span>';
   const d=val-prev;
   if(Math.abs(d)<(rate?0.05:0.005))return '<span class="d neutral">0</span>';
-  const cls=bad?(d>0?'up-bad':'down-good'):(d>0?'up-good':'down-bad');
+  const cls=typeof bad==='string'?'st-'+bad:bad?(d>0?'up-bad':'down-good'):(d>0?'up-good':'down-bad');
   const txt=rate?(d>0?'+':'')+d.toFixed(1)+' pp':(d>0?'+':'')+(d/prev*100).toFixed(1)+'%';
   return `<span class="d ${cls}">${d>0?'▲':'▼'} ${txt}</span>`;
 }
@@ -531,10 +536,10 @@ function renderTrendBar(){
     ['Units',fN(a.units),delta(a.units,pw?.units,false)],
     ['Sessions',fN(a.sessions),delta(a.sessions,pw?.sessions,false)],
     ['CVR',fP(a.cvr||0),delta(a.cvr,pw?.cvr,false,true)],
-    ['Ad Spend',fC(a.adSpend,cur),delta(a.adSpend,pw?.adSpend,true)],
-    ['TACoS',fP(a.tacos||0),delta(a.tacos,pw?.tacos,true,true)],
-    ['ACoS',fP(a.acos||0),delta(a.acos,pw?.acos,true,true)],
-    ['ROAS',fX(a.roas||0),delta(a.roas,pw?.roas,false)],
+    ['Ad Spend',fC(a.adSpend,cur),delta(a.adSpend,pw?.adSpend,tacosSt(a.tacos||0))],
+    ['TACoS',fP(a.tacos||0),delta(a.tacos,pw?.tacos,tacosSt(a.tacos||0),true)],
+    ['ACoS',fP(a.acos||0),delta(a.acos,pw?.acos,tacosSt(a.tacos||0),true)],
+    ['ROAS',fX(a.roas||0),delta(a.roas,pw?.roas,roasSt(a.roas||0))],
   ].map((r,i)=>(i>0?'<div class="trend-div"></div>':'')+`<div class="trend-item"><span class="trend-lbl">${r[0]}</span><span class="trend-v">${r[1]}</span>${r[2]}</div>`).join('');
 }
 
@@ -552,10 +557,10 @@ function renderKPIs(){
     ['neutral','Units Sold',fN(a.units),dd(a.units,P('units')),p?'prev '+fN(P('units')):'all SKUs'],
     ['neutral','Sessions',fN(a.sessions),dd(a.sessions,P('sessions')),p?'prev '+fN(P('sessions')):'total traffic'],
     ['neutral','Blended CVR',fP(a.cvr||0),dd(a.cvr,P('cvr'),true),'units/sessions'],
-    [ts,'TACoS',fP(a.tacos||0),dd(a.tacos,P('tacos'),true,true),'target <10%'],
-    [as,'ACoS',fP(a.acos||0),dd(a.acos,P('acos'),true,true),'limit 30%'],
-    ['neutral','ROAS',fX(a.roas||0),dd(a.roas,P('roas')),'ad return'],
-    ['neutral','Ad Spend',fC(a.adSpend,cur),dd(a.adSpend,P('adSpend'),false,true),viewMode==='WEEKLY'?'this week':'this period'],
+    [ts,'TACoS',fP(a.tacos||0),dd(a.tacos,P('tacos'),true,ts),'target <10%'],
+    [as,'ACoS',fP(a.acos||0),dd(a.acos,P('acos'),true,ts),'limit 30%'],
+    [roasSt(a.roas||0),'ROAS',fX(a.roas||0),dd(a.roas,P('roas'),false,roasSt(a.roas||0)),'floor 5.0x'],
+    ['neutral','Ad Spend',fC(a.adSpend,cur),dd(a.adSpend,P('adSpend'),false,ts),viewMode==='WEEKLY'?'this week':'this period'],
     ['neutral','NTB Orders',nst==='na'?'n/a':nst==='pending'?'Pending':fN(a.ntbOrders||0)+(nst==='partial'?'*':''),nOk?dd(a.ntbOrders,P('ntbOrders')):'',nst==='pending'?'loads Thursday':nst==='partial'?'* some data pending':'ad-attributed'],
     ['neutral','NTB %',nst==='na'?'n/a':nst==='pending'?'Pending':fP(a.ntbPct||0)+(nst==='partial'?'*':''),nOk?dd(a.ntbPct,P('ntbPct'),true):'','of all orders'],
   ].map(([s,l,v,d,sub])=>`<div class="kpi ${s}"><div class="kpi-lbl">${l}</div><div class="kpi-val ${s==='crit'?'crit':s==='warn'?'warn':''}">${v}</div><div class="kpi-sub">${d}<span class="sub-lbl">${sub}</span></div></div>`).join('');
@@ -671,7 +676,7 @@ function renderGlobalView(){
     if(!hasData(a)){html+=`<tr class="clickable" onclick="switchMkt('${k}')"><td>${MKT_META[k]?.label||k}<span class="sub">${MKT_META[k]?.name||''}</span></td><td colspan="13" style="text-align:left;color:var(--muted)">No data for this period</td></tr>`;return;}
     const ts=a.tacos>15?'crit':a.tacos>10?'warn':'ok';
     const org=a.organicSales!=null?a.organicSales:((a.revenue||0)-(a.adSales||0));
-    html+=`<tr class="clickable" onclick="switchMkt('${k}')"><td>${MKT_META[k]?.label||k}<span class="sub">${MKT_META[k]?.name||''}</span>${oosChip(k)}</td><td>${pa?fCF(pa.revenue||0,cur):'—'}</td><td>${fCF(a.revenue||0,cur)}</td><td>${dd(a.revenue,pa&&pa.revenue)}</td><td>${fN(a.units||0)} ${dd(a.units,pa&&pa.units)}</td><td>${fN(a.sessions||0)}</td><td>${fP(a.cvr||0)}</td><td>${fCF(a.adSpend||0,cur)}</td><td>${fCF(a.adSales||0,cur)}</td><td>${fCF(Math.round(org),cur)}</td><td><span class="pill ${ts}">${fP(a.tacos||0)}</span> ${dd(a.tacos,pa&&pa.tacos,true,true)}</td><td>${fP(a.acos||0)}</td><td>${ntbCell(ntbState(w,k),fN(a.ntbOrders||0))}</td><td>${ntbCell(ntbState(w,k),fP(a.ntbPct||0))}</td></tr>`;
+    html+=`<tr class="clickable" onclick="switchMkt('${k}')"><td>${MKT_META[k]?.label||k}<span class="sub">${MKT_META[k]?.name||''}</span>${oosChip(k)}</td><td>${pa?fCF(pa.revenue||0,cur):'—'}</td><td>${fCF(a.revenue||0,cur)}</td><td>${dd(a.revenue,pa&&pa.revenue)}</td><td>${fN(a.units||0)} ${dd(a.units,pa&&pa.units)}</td><td>${fN(a.sessions||0)}</td><td>${fP(a.cvr||0)}</td><td>${fCF(a.adSpend||0,cur)}</td><td>${fCF(a.adSales||0,cur)}</td><td>${fCF(Math.round(org),cur)}</td><td><span class="pill ${ts}">${fP(a.tacos||0)}</span> ${dd(a.tacos,pa&&pa.tacos,true,ts)}</td><td>${fP(a.acos||0)}</td><td>${ntbCell(ntbState(w,k),fN(a.ntbOrders||0))}</td><td>${ntbCell(ntbState(w,k),fP(a.ntbPct||0))}</td></tr>`;
   });
   html+='</tbody></table></div>';
 
@@ -720,7 +725,7 @@ function renderMktView(){
       const bsr=(p.categoryBSR||p.bsr);
       const pbsr=pp?(pp.categoryBSR||pp.bsr):null;
       const oo=oosProduct(mktKey,p.name);
-      html+=`<tr><td>${esc(p.name)}${oo?`<span class="oos-chip${oo.main?'':' var'}" title="${esc(oo.name)} (${oo.asin}): ${oo.hold?'listing on hold':'out of stock'} since ${fDay(oo.since)}, est. $${fN(oo.lost_usd)} lost so far">${oo.main?(oo.hold?'HOLD':'OUT'):'A variant out'} since ${fDay(oo.since)}</span>`:''}${p.subcategory?`<span class="sub">${esc(p.subcategory)}</span>`:''}</td><td>${pp?fCF(pp.revenue||0,cur):'\u2014'}</td><td>${fCF(p.revenue||0,cur)}</td><td>${dd(p.revenue,pp&&pp.revenue)}</td><td>${fN(p.units||0)} ${dd(p.units,pp&&pp.units)}</td><td>${fN(p.sessions||0)} ${dd(p.sessions,pp&&pp.sessions)}</td><td>${fP(p.cvr||0)} ${dd(p.cvr,pp&&pp.cvr,true)}</td><td>${fCF(p.adSpend||0,cur)} ${dd(p.adSpend,pp&&pp.adSpend,false,true)}</td><td>${fCF(p.adSales||0,cur)} ${dd(p.adSales,pp&&pp.adSales)}</td><td>${fCF(Math.round(org),cur)} ${dd(org,porg)}</td><td><span class="pill ${ts}">${fP(p.tacos||0)}</span> ${dd(p.tacos,pp&&pp.tacos,true,true)}</td><td>${fP(p.acos||0)} ${dd(p.acos,pp&&pp.acos,true,true)}</td><td>${ntbCell(ntbState(w,mktKey),fN(p.ntbOrders||0)+' '+dd(p.ntbOrders,pp&&pp.ntbOrders))}</td><td>${bsr?'#'+bsr:'\u2014'}${p.subcategoryBSR?` <span class="sub" style="display:inline;color:var(--accent)">(#${p.subcategoryBSR})</span>`:''} ${bsr&&pbsr?dd(bsr,pbsr,false,true):''}</td></tr>`;
+      html+=`<tr><td>${esc(p.name)}${oo?`<span class="oos-chip${oo.main?'':' var'}" title="${esc(oo.name)} (${oo.asin}): ${oo.hold?'listing on hold':'out of stock'} since ${fDay(oo.since)}, est. $${fN(oo.lost_usd)} lost so far">${oo.main?(oo.hold?'HOLD':'OUT'):'A variant out'} since ${fDay(oo.since)}</span>`:''}${p.subcategory?`<span class="sub">${esc(p.subcategory)}</span>`:''}</td><td>${pp?fCF(pp.revenue||0,cur):'\u2014'}</td><td>${fCF(p.revenue||0,cur)}</td><td>${dd(p.revenue,pp&&pp.revenue)}</td><td>${fN(p.units||0)} ${dd(p.units,pp&&pp.units)}</td><td>${fN(p.sessions||0)} ${dd(p.sessions,pp&&pp.sessions)}</td><td>${fP(p.cvr||0)} ${dd(p.cvr,pp&&pp.cvr,true)}</td><td>${fCF(p.adSpend||0,cur)} ${dd(p.adSpend,pp&&pp.adSpend,false,ts)}</td><td>${fCF(p.adSales||0,cur)} ${dd(p.adSales,pp&&pp.adSales)}</td><td>${fCF(Math.round(org),cur)} ${dd(org,porg)}</td><td><span class="pill ${ts}">${fP(p.tacos||0)}</span> ${dd(p.tacos,pp&&pp.tacos,true,ts)}</td><td>${fP(p.acos||0)} ${dd(p.acos,pp&&pp.acos,true,ts)}</td><td>${ntbCell(ntbState(w,mktKey),fN(p.ntbOrders||0)+' '+dd(p.ntbOrders,pp&&pp.ntbOrders))}</td><td>${bsr?'#'+bsr:'\u2014'}${p.subcategoryBSR?` <span class="sub" style="display:inline;color:var(--accent)">(#${p.subcategoryBSR})</span>`:''} ${bsr&&pbsr?dd(bsr,pbsr,false,true):''}</td></tr>`;
     });
     html+='</tbody></table></div>';
   } else {
@@ -899,7 +904,7 @@ window.addEventListener('load',()=>render());
     <nav class="site-nav" aria-label="Dashboards"><a href="../sales/" class="on" aria-current="page">Sales</a><a href="../health/">Account Health</a><a href="../inventory/">Inventory</a></nav>
     
   </div>
-  <div class="header-right"><div class="asof"><div class="lbl">Updated</div><div class="val">Oct 8, 2026 10:08 AM CT</div></div></div>
+  <div class="header-right"><div class="asof"><div class="lbl">Updated</div><div class="val">Oct 8, 2026 10:15 AM CT</div></div></div>
 </header>
 
 <nav class="nav-row">
