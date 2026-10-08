@@ -31,7 +31,7 @@ MONTH = the month of THROUGH. If the reporting week crosses into a new month, al
 python3 scripts/pacing.py budget $MONTH --tab "<tab name>" CC_US=<n> CC_CA=<n> CC_UK=<n> CC_AUS=<n> CC_DE=<n> CC_FR=<n> CC_ES=<n> CC_IT=<n> CC_NL=<n> CC_SA=<n> CL_US=<n> PP_US=<n>
 ```
 Channel map (sheet -> key) is in `scripts/pacing.py`. Plain numbers, no currency symbols, each in the channel's own currency.
-October 2026 has no sheet tab: its budgets were set 2026-10-08 from NIC's rolling 6-week Cerakote Auto budget (Matt Reid, 10/1; $221,728 for Oct 1-31), split from the September budgets with 80% of the increase on Auto US; Legacy and Prismatic unchanged. Never overwrite an existing data/budgets file with nothing.
+Cerakote Auto is paced WEEKLY against NIC's pooled budget in `data/weekly_budget.json` (one budget for all Auto marketplaces; budget moves between them, so markets show spend and share only). Weeks are ISO weeks (Wk 40 = Sep 28 to Oct 4). When Matt Reid (NIC) emails a new rolling 6-week schedule, replace the weeks list with it; keep older weeks that are still on the page. From October 2026 the monthly pacing table covers Legacy and Prismatic only; write only CL_US and PP_US budgets for a month unless Barcus says otherwise. Never overwrite an existing data/budgets file with nothing.
 No tab for MONTH yet: skip this step and do not write a file. The Sales page then shows spend with "budgets not in the sheet yet". Say so in the summary.
 
 ## 4. Spend, 1st of MONTH through THROUGH

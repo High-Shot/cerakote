@@ -1,18 +1,8 @@
 {
  "month": "2026-10",
- "source_tab": "NIC rolling 6-wk (Oct split)",
+ "source_tab": "Legacy + Prismatic unchanged from Sept (Auto paced weekly)",
  "read_at": "2026-10-08",
  "channels": {
-  "CC_US": 155730.15,
-  "CC_CA": 27451.69,
-  "CC_UK": 14769.08,
-  "CC_AUS": 6214.46,
-  "CC_DE": 10807.75,
-  "CC_FR": 3458.48,
-  "CC_ES": 3242.33,
-  "CC_IT": 1797.55,
-  "CC_NL": 745.74,
-  "CC_SA": 783.56,
   "CL_US": 7750.0,
   "PP_US": 3850.0
  }

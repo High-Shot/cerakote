@@ -1,0 +1,13 @@
+{
+ "source": "NIC rolling 6-week Amazon PPC budget (Matt Reid, 2026-10-01)",
+ "scope": "Cerakote Auto, all marketplaces pooled. Budget can move between marketplaces.",
+ "total": 293999.26,
+ "weeks": [
+  {"wk": 39, "start": "2026-09-21", "budget": 51194.94},
+  {"wk": 40, "start": "2026-09-28", "budget": 54848.72},
+  {"wk": 41, "start": "2026-10-05", "budget": 52205.95},
+  {"wk": 42, "start": "2026-10-12", "budget": 46372.23},
+  {"wk": 43, "start": "2026-10-19", "budget": 45554.13},
+  {"wk": 44, "start": "2026-10-26", "budget": 43823.29}
+ ]
+}

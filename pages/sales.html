@@ -204,6 +204,8 @@ td:first-child .oos-chip{display:table;}
 .prelim{display:inline-block;margin-top:8px;padding:4px 10px;border-radius:5px;font-family:var(--font-mono);font-size:10px;color:var(--amber);background:var(--amber-bg);border:1px solid var(--amber-border);}
 .data-notes{list-style:none;margin:0 0 24px;padding:12px 16px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--card);font-family:var(--font-mono);font-size:10.5px;color:var(--muted);line-height:1.7;}
 .data-notes li::before{content:'\2022';color:var(--accent);margin-right:8px;}
+.kpi-row.wk-kpi{grid-template-columns:repeat(4,1fr);}
+@media(max-width:700px){.kpi-row.wk-kpi{grid-template-columns:repeat(2,1fr);}}
 .pace-note{font-family:var(--font-mono);font-size:10px;color:var(--dim);margin:-16px 0 24px;line-height:1.6;}
 </style>
 </head>
@@ -220,6 +222,7 @@ var MKT_KEYS = /*__MKT_KEYS__*/;
 var FX = /*__FX__*/;
 var NTB_MKTS = /*__NTB_MKTS__*/;  // markets whose ads report new-to-brand at all
 var PACING = /*__PACING__*/;
+var WKBUD = /*__WKBUD__*/;  // Cerakote Auto pooled weekly budget (data/weekly_budget.json)
 var PERIODS = /*__PERIODS__*/;  // exact calendar-month totals by 'YYYY-MM' (NIC normalize.py --period)
 var STOCK = /*__STOCK__*/;      // out-of-stock now, per tab, from the latest Q4 inventory projection
 var CHANGES = /*__CHANGES__*/;  // ad changes logged in Scale Insights: weekly counts + budget changes  // [{month:'YYYY-MM', budgets:{tab:n}, spend:{tab:{spend,source}}, through:'YYYY-MM-DD'}] oldest first  // units of currency per 1 USD, by ISO code; MKT_META[k].code picks the rate
@@ -591,13 +594,50 @@ function renderPacing(tabs){
   return h;
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// CERAKOTE AUTO WEEKLY BUDGET: one NIC budget per week for every Auto marketplace combined.
+// Budget moves freely between marketplaces, so only the pool can be over. Markets show spend and share, no budget.
+// ═══════════════════════════════════════════════════════════════
+const AUTO_ORDER=['CC_US','CC_CA','CC_UK','CC_DE','CC_FR','CC_IT','CC_ES','CC_NL','CC_AUS','CC_SA'];
+function wkStart(w){const d=new Date(w.we+'T00:00:00Z');d.setUTCDate(d.getUTCDate()-6);return d.toISOString().slice(0,10);}
+function wkBudFor(w){return WKBUD&&WKBUD.weeks?WKBUD.weeks.find(x=>x.start===wkStart(w)):null;}
+function autoSpendUSD(w){const by={};let t=0;AUTO_ORDER.forEach(k=>{const a=w.markets[k]?.acct;if(a&&a.adSpend!=null){by[k]=toUSD(k,a.adSpend);t+=by[k];}});return {t,by};}
+function usedCell(p){if(p==null)return '<span class="pace-none">&mdash;</span>';const c=p>100?'pace-crit':p>=90?'pace-warn':'pace-ok';
+  return `<span class="${c}"><span class="pace-pct">${p.toFixed(0)}%</span><span class="pace-bar"><i style="width:${Math.min(p,130)/1.3}%"></i><b></b></span></span>`;}
+function renderAutoWeekly(onlyMkt){
+  if(!WKBUD||viewMode!=='WEEKLY')return '';
+  const w=getActiveWeek(), B=wkBudFor(w); if(!B)return '';
+  const s=autoSpendUSD(w), left=B.budget-s.t;
+  // schedule to date: every schedule week up to this one that has a loaded NIC week
+  let tb=0,ts=0;WKBUD.weeks.filter(x=>x.start<=B.start).forEach(x=>{const ww=WEEKS.find(y=>wkStart(y)===x.start);if(ww){tb+=x.budget;ts+=autoSpendUSD(ww).t;}});
+  let h=`<div class="pace-head"><div class="sec">Cerakote Auto Ad Budget &middot; Week ${B.wk}</div><span class="pace-meta">${w.range} &middot; one budget for all Auto marketplaces &middot; USD</span></div>`;
+  if(onlyMkt){const v=s.by[onlyMkt];
+    h+=`<div class="tbl-wrap"><table class="dt"><thead><tr><th>Week ${B.wk}</th><th>Auto budget (all markets)</th><th>Auto spend (all markets)</th><th style="text-align:left;padding-left:18px">Used</th><th>${MKT_META[onlyMkt]?.label||onlyMkt} spend</th><th>Share of Auto spend</th></tr></thead><tbody>`
+      +`<tr><td>${fDay(B.start)} &ndash; ${fDay(w.we)}</td><td>${fCF(Math.round(B.budget),'$')}</td><td>${fCF(Math.round(s.t),'$')}</td><td style="text-align:left;padding-left:18px">${usedCell(s.t/B.budget*100)}</td><td>${v==null?'&mdash;':fCF(Math.round(v),'$')}${v!=null&&getCur(onlyMkt)!=='$'?`<span class="sub">${fCF(Math.round(w.markets[onlyMkt].acct.adSpend),getCur(onlyMkt))} local</span>`:''}</td><td>${v==null||!s.t?'&mdash;':(v/s.t*100).toFixed(1)+'%'}</td></tr></tbody></table></div>`
+      +`<div class="pace-note">NIC sets one weekly budget for Cerakote Auto. Budget moves between marketplaces as needed, so a single marketplace is never over budget on its own; only the Auto total can be.</div>`;
+    return h;}
+  h+=`<div class="kpi-row wk-kpi" style="margin-bottom:14px">${[
+    ['neutral',`Week ${B.wk} budget`,fCF(Math.round(B.budget),'$'),'NIC, all Auto marketplaces'],
+    ['neutral','Spent',fCF(Math.round(s.t),'$'),'SP + SB + SD'],
+    [left<0?'crit':'ok',left<0?'Over budget':'Under budget',fCF(Math.round(Math.abs(left)),'$'),(s.t/B.budget*100).toFixed(0)+'% used'],
+    [ts>tb?'warn':'ok',`6-week schedule to date`,`${fCF(Math.round(ts),'$')}`,`of ${fCF(Math.round(tb),'$')} (Wk ${WKBUD.weeks[0].wk}&ndash;${B.wk})`],
+  ].map(([c,l,v,sub])=>`<div class="kpi ${c}"><div class="kpi-lbl">${l}</div><div class="kpi-val ${c==='crit'?'crit':c==='warn'?'warn':''}">${v}</div><div class="kpi-sub"><span class="sub-lbl">${sub}</span></div></div>`).join('')}</div>`;
+  h+=`<div class="tbl-wrap"><table class="dt"><thead><tr><th>Market</th><th>Spend</th><th>Spend (USD)</th><th>Share of Auto spend</th></tr></thead><tbody>`;
+  AUTO_ORDER.filter(k=>s.by[k]!=null).forEach(k=>{const a=w.markets[k].acct;
+    h+=`<tr class="clickable" onclick="switchMkt('${k}')"><td>${MKT_META[k]?.label||k}<span class="sub">${MKT_META[k]?.name||''}</span>${oosChip(k)}</td><td>${fCF(Math.round(a.adSpend),getCur(k))}</td><td>${fCF(Math.round(s.by[k]),'$')}</td><td>${s.t?(s.by[k]/s.t*100).toFixed(1)+'%':'&mdash;'}</td></tr>`;});
+  h+=`<tr class="pace-total"><td>Total</td><td></td><td>${fCF(Math.round(s.t),'$')}</td><td style="text-align:left;padding-left:18px">${usedCell(s.t/B.budget*100)} <span class="sub" style="display:inline">of budget</span></td></tr></tbody></table></div>`;
+  h+=`<div class="pace-note">NIC sets one weekly budget for Cerakote Auto and it moves between marketplaces as needed, so marketplaces show spend and share, not budgets; only the Auto total can be over. Schedule to date compares the weeks loaded so far against NIC's budgets for those weeks. Budget: ${WKBUD.source}. Spend: Scale Insights campaign totals (SA: Helium10), converted to USD at the dashboard's FX.</div>`;
+  return h;
+}
+
 function renderGlobalView(){
   const w=getActiveWeek();
   const mks=filterMkts(Object.keys(w.markets));
   const totalRev=mks.reduce((s,k)=>s+toUSD(k,w.markets[k]?.acct.revenue||0),0);
 
   const cmpW=getCmpWeek(w); const cs=cmpLabelStr(w);
-  let html=renderPacing(mks)+`<div class="sec">Marketplace Breakdown</div><div class="tbl-wrap"><table class="dt"><thead><tr><th>Market</th><th>Rev ${cs}</th><th>Rev ${w.label}</th><th>${chgLabel()}</th><th>Units</th><th>Sessions</th><th>CVR</th><th>Ad Spend</th><th>Ad Sales</th><th>Organic</th><th>TACoS</th><th>ACoS</th><th>NTB</th><th>NTB%</th></tr></thead><tbody>`;
+  let html=renderAutoWeekly()+renderPacing(WKBUD?mks.filter(k=>!k.startsWith('CC_')):mks)+`<div class="sec">Marketplace Breakdown</div><div class="tbl-wrap"><table class="dt"><thead><tr><th>Market</th><th>Rev ${cs}</th><th>Rev ${w.label}</th><th>${chgLabel()}</th><th>Units</th><th>Sessions</th><th>CVR</th><th>Ad Spend</th><th>Ad Sales</th><th>Organic</th><th>TACoS</th><th>ACoS</th><th>NTB</th><th>NTB%</th></tr></thead><tbody>`;
   mks.forEach(k=>{
     const a=w.markets[k]?.acct||{};const cur=getCur(k);
     const pa=cmpW?getMktData(cmpW,k).acct:null;
@@ -632,7 +672,7 @@ function renderMktView(){
   const w=getActiveWeek(), d=getMktData(w,mktKey);
   const cur=getCur(mktKey);
   const prods=d.products||[];
-  let html=renderPacing([mktKey]);
+  let html=(WKBUD&&mktKey.startsWith('CC_'))?renderAutoWeekly(mktKey):renderPacing([mktKey]);
 
   if(prods.length){
     html+=`<div class="sec">Revenue & Advertising Mix</div><div class="three-col">
