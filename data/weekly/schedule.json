@@ -1,4 +1,28 @@
 {
+ "allocation": {
+  "fx": {
+   "AUD": 1.4388,
+   "CAD": 1.4246,
+   "EUR": 0.88511,
+   "GBP": 0.75565
+  },
+  "fx_date": "2026-10-01",
+  "method": "september",
+  "note": "September monthly budgets x 7/30 per market; NIC's weekly difference goes 80% to Auto US, 20% to the other markets pro rata.",
+  "sept_local": {
+   "CC_AUS": 5750.0,
+   "CC_CA": 25400.0,
+   "CC_DE": 10000.0,
+   "CC_ES": 3000.0,
+   "CC_FR": 3200.0,
+   "CC_IT": 1663.2,
+   "CC_NL": 690.0,
+   "CC_SA": 725.0,
+   "CC_UK": 13665.26,
+   "CC_US": 136000.0
+  },
+  "us_share": 0.8
+ },
  "issued": "2026-10-01",
  "notes": [
   "NIC's email describes spreading over/underspend equally across the next six weeks; this page uses Barcus's rule: carry it in full into the next week."

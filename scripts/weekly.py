@@ -9,6 +9,10 @@ Carryover (Barcus): a week's leftover rolls into the NEXT week in full; an overs
 in full. Carryover stacks. A finished week locks on the Tuesday after it ends; until then it is provisional.
 Carryover only starts after the newest schedule's first week: NIC's own re-issued schedule already includes
 everything before it, so it is never applied twice.
+Per marketplace (Barcus 2026-10-08): each week's NIC total is split from the September monthly budgets. Each
+market's base = its September budget in USD (schedule fx) x 7/30; the difference between NIC's week and that sum
+goes us_share to Auto US and the rest to the other markets pro rata to September. Carryover runs per market, so
+the markets always add up to the global bucket.
 
   python3 scripts/weekly.py schedule FILE.json            replace data/weekly/schedule.json (validates totals)
   python3 scripts/weekly.py si-daily CC_US FILE.json      SI get_sales_data(group_by=day) result -> daily spend
@@ -78,6 +82,22 @@ def daily_usd(sp):
     return out, sorted(notes)
 
 
+def allocate(sched, base):
+    """{market: USD base} for one week from the schedule's September split."""
+    a = sched.get('allocation')
+    if not a:
+        return None
+    sept = {m: a['sept_local'][m] / (PEGGED.get(CUR[m]) or a['fx'][CUR[m]]) * 7 / 30 for m in a['sept_local']}
+    tot = sum(sept.values())
+    intl = tot - sept.get('CC_US', 0)
+    extra = base - tot
+    out = {}
+    for m, v in sept.items():
+        share = a['us_share'] if m == 'CC_US' else (1 - a['us_share']) * v / intl
+        out[m] = v + extra * share
+    return out
+
+
 def compute(today=None):
     today = today or dt.date.today()
     sched, sp = load(SCHED, None), load(SPEND, blank())
@@ -86,7 +106,7 @@ def compute(today=None):
     usd, notes = daily_usd(sp)
     through = max((d for m in usd.values() for d in m), default=None)
     first = sched['weeks'][0]['wk']
-    weeks, carry = [], 0.0
+    weeks, carry, mcarry = [], 0.0, {}
     for w in sched['weeks']:
         s, e = D(w['start']), D(w['start']) + dt.timedelta(days=6)
         lock = e + dt.timedelta(days=2)
@@ -114,13 +134,27 @@ def compute(today=None):
                'status': status, 'lock_date': lock.isoformat(), 'missing': missing,
                'markets': {m: {k: (round(v, 2) if isinstance(v, float) else v) for k, v in x.items()} for m, x in mk.items()}}
         row['left'] = round(ceiling - spend, 2) if spend is not None else None
+        alloc = allocate(sched, w['base'])
+        done = status in ('locked', 'provisional') and spend is not None and days_in == 7
+        if alloc:
+            row['alloc'] = {}
+            for m, b in alloc.items():
+                ci = mcarry.get(m, 0.0) if w['wk'] != first else 0.0
+                ce = b + ci
+                sp = mk.get(m, {}).get('usd') if mk else None
+                loc = mk.get(m, {}).get('local') if mk else None
+                row['alloc'][m] = {'base': round(b, 2), 'carry_in': round(ci, 2), 'ceiling': round(ce, 2),
+                                   'spend': round(sp, 2) if sp is not None else None, 'spend_local': round(loc, 2) if loc is not None else None,
+                                   'cur': CUR[m], 'left': round(ce - sp, 2) if sp is not None else None}
+                mcarry[m] = (ce - (sp or 0)) if done and m in mk else 0.0
         if status in ('locked', 'provisional') and spend is not None and days_in == 7:
             carry = ceiling - spend          # full carryover into the next week, either direction
         else:
             carry = 0.0                      # nothing known yet beyond this week
         weeks.append(row)
     return {'source': sched.get('source'), 'issued': sched.get('issued'), 'total': sched.get('total'), 'scope': sched.get('scope'),
-            'through': through, 'built': today.isoformat(), 'weeks': weeks, 'notes': notes + sched.get('notes', [])}
+            'through': through, 'built': today.isoformat(), 'weeks': weeks,
+            'alloc_note': (sched.get('allocation') or {}).get('note'), 'notes': notes + sched.get('notes', [])}
 
 
 def main():

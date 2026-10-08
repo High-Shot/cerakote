@@ -57,7 +57,7 @@ WEEKSTART = the Monday of the week before THROUGH's week (`date -d 'last sunday 
 - SA: daily `advertising_cost` from the H10 cache (`query.py spend FROM TO CC_SA`, SAR) -> `python3 scripts/weekly.py day CC_SA <date>=<amt> ...`. Cache missing: leave it out; the page flags SA as not loaded.
 - FX: WebFetch `https://api.frankfurter.dev/v1/<WEEKSTART minus 3 days>..<today>?from=USD&to=CAD%2CGBP%2CEUR%2CAUD`, save the JSON, `python3 scripts/weekly.py fx <file>`.
 - `python3 scripts/weekly.py show` and put the current week's ceiling, spend and left into the summary line 2.
-- New schedule from NIC (Matt Reid emails it; search Gmail "Rolling 6 Week Budget"): write it as JSON (source, issued, total, weeks [{wk, start Monday, base}]) and `python3 scripts/weekly.py schedule <file>`. It replaces the old one; carryover restarts from its first week because NIC's figures already include prior weeks. When the page says "last week of this schedule", flag it in the summary.
+- New schedule from NIC (Matt Reid emails it; search Gmail "Rolling 6 Week Budget"): write it as JSON (source, issued, total, weeks [{wk, start Monday, base}]) and `python3 scripts/weekly.py schedule <file>`. It replaces the old one; carryover restarts from its first week because NIC's figures already include prior weeks. Copy the `allocation` block from the current schedule.json unchanged (per-market split: September budgets x 7/30, NIC's weekly difference 80% to Auto US, 20% to the rest pro rata; Barcus 2026-10-08). Change it only when Barcus says so. When the page says "last week of this schedule", flag it in the summary.
 Skip on failure; the section keeps the last loaded spend and says "spend through <date>".
 
 ## 5. Build

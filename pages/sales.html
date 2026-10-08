@@ -607,6 +607,43 @@ function renderPacing(tabs){
 const WK_ORDER=['CC_US','CC_CA','CC_UK','CC_DE','CC_FR','CC_IT','CC_ES','CC_NL','CC_AUS','CC_SA'];
 function fUSD(v){return v==null?'&mdash;':fCF(Math.round(v),'$');}
 function wkSigned(v){if(v==null)return '&mdash;';if(Math.abs(v)<0.5)return '$0';return `<span class="${v<0?'wk-neg':'wk-pos'}">${v<0?'&minus;':'+'}${fCF(Math.round(Math.abs(v)),'$')}</span>`;}
+
+function wkUsed(sp,ce){if(sp==null||!ce)return '<span class="pace-none">&mdash;</span>';const u=sp/ce*100;
+  return `<span class="${u>100?'pace-crit':u>=90?'pace-warn':'pace-ok'}"><span class="pace-pct">${u.toFixed(0)}%</span><span class="pace-bar"><i style="width:${Math.min(u,130)/1.3}%"></i><b></b></span></span>`;}
+function wkLoc(m,a){if(a.spend_local==null||a.cur==='USD')return '';return `<span class="sub">${fCF(Math.round(a.spend_local),getCur(m))} local</span>`;}
+function renderWeeklyMarkets(w,tabs){
+  const live=w.status==='current', daysLeft=7-w.days;
+  const rows=WK_ORDER.filter(m=>w.alloc[m]&&tabs.indexOf(m)!==-1);
+  let h=`<div class="sec" style="margin-top:4px">Wk ${w.wk} by marketplace <span class="sec-sub">${fDay(w.start)} &ndash; ${fDay(w.end)} &middot; USD</span></div><div class="tbl-wrap"><table class="dt"><thead><tr><th>Market</th><th>Weekly budget</th><th>Carried in</th><th>Ceiling</th><th>Spend</th><th style="text-align:left;padding-left:18px">Used</th><th>Left / over</th>${live?'<th>Room / day</th>':''}</tr></thead><tbody>`;
+  let tb=0,tc=0,te=0,ts=0;
+  rows.forEach(m=>{const a=w.alloc[m];tb+=a.base;tc+=a.carry_in;te+=a.ceiling;ts+=a.spend||0;
+    const room=live&&a.left!=null&&daysLeft>0?Math.max(0,a.left)/daysLeft:null;
+    h+=`<tr class="clickable" onclick="switchMkt('${m}')"><td>${MKT_META[m]?.label||m}<span class="sub">${MKT_META[m]?.name||''}</span></td><td>${fUSD(a.base)}</td><td>${w.wk===WEEKLY.weeks[0].wk?'<span class="pace-none">&mdash;</span>':wkSigned(a.carry_in)}</td><td>${fUSD(a.ceiling)}</td>`
+      +`<td>${a.spend==null?'<span class="pace-none" style="color:var(--amber)">not loaded</span>':fUSD(a.spend)}${wkLoc(m,a)}</td><td style="text-align:left;padding-left:18px">${wkUsed(a.spend,a.ceiling)}</td><td>${a.left==null?'&mdash;':wkSigned(a.left)}</td>${live?`<td>${room==null?'&mdash;':fUSD(room)}</td>`:''}</tr>`;});
+  if(rows.length>1)h+=`<tr class="pace-total"><td>Total</td><td>${fUSD(tb)}</td><td>${w.wk===WEEKLY.weeks[0].wk?'':wkSigned(tc)}</td><td>${fUSD(te)}</td><td>${fUSD(ts)}</td><td style="text-align:left;padding-left:18px">${wkUsed(ts,te)}</td><td>${wkSigned(te-ts)}</td>${live?`<td>${daysLeft>0?fUSD(Math.max(0,te-ts)/daysLeft):'&mdash;'}</td>`:''}</tr>`;
+  h+=`</tbody></table></div><div class="pace-note">${WEEKLY.alloc_note||''} Each market carries its own leftover or overspend into its next week.</div><div class="sec">6-week schedule &middot; all Auto markets</div>`;
+  return h;
+}
+function renderWeeklyMkt(m){
+  if(!WEEKLY||!WEEKLY.weeks||!m.startsWith('CC_')||!WEEKLY.weeks[0].alloc||!WEEKLY.weeks[0].alloc[m])return '';
+  const W=WEEKLY.weeks, cur=W.find(w=>w.status==='current');
+  let h=`<div class="pace-head"><div class="sec">Weekly Ad Budget &middot; ${MKT_META[m]?.label||m}</div><span class="pace-meta">share of NIC's rolling 6-week Cerakote Auto budget &middot; USD${WEEKLY.through?' &middot; spend through '+fDay(WEEKLY.through):''}</span></div>`;
+  if(cur&&cur.alloc[m]){const a=cur.alloc[m],dl=7-cur.days,pct=a.spend!=null&&cur.days?a.spend/(a.ceiling*cur.days/7)*100:null;
+    h+=`<div class="kpi-row wk-kpi" style="margin-bottom:14px">${[
+      ['neutral',`Wk ${cur.wk} ceiling`,fUSD(a.ceiling),`${fUSD(a.base)} budget ${a.carry_in>=0?'+':'&minus;'} ${fUSD(Math.abs(a.carry_in))} carried`],
+      ['neutral','Spent this week',a.spend==null?'&mdash;':fUSD(a.spend),a.spend_local!=null&&a.cur!=='USD'?fCF(Math.round(a.spend_local),getCur(m))+' local &middot; '+cur.days+' of 7 days':cur.days+' of 7 days'],
+      [a.left!=null&&a.left<0?'crit':'ok','Left this week',a.left==null?'&mdash;':(a.left<0?'&minus;'+fUSD(-a.left):fUSD(a.left)),a.left!=null&&dl>0?fUSD(Math.max(0,a.left)/dl)+' / day for '+dl+' days':''],
+      [pct==null?'neutral':pct>100?'warn':'ok','Pace vs ceiling',pct==null?'&mdash;':pct.toFixed(0)+'%','spend &divide; ceiling to date'],
+    ].map(([s,l,v,sub])=>`<div class="kpi ${s}"><div class="kpi-lbl">${l}</div><div class="kpi-val ${s==='crit'?'crit':s==='warn'?'warn':''}">${v}</div><div class="kpi-sub"><span class="sub-lbl">${sub}</span></div></div>`).join('')}</div>`;}
+  h+=`<div class="tbl-wrap"><table class="dt"><thead><tr><th>Week</th><th>Dates</th><th>Budget</th><th>Carried in</th><th>Ceiling</th><th>Spend</th><th style="text-align:left;padding-left:18px">Used</th><th>Left / over</th><th>Status</th></tr></thead><tbody>`;
+  W.forEach((w,i)=>{const a=w.alloc[m],prev=W[i-1];
+    const carry=i===0?'<span class="pace-none">&mdash;</span>':(prev&&(prev.status==='locked'||prev.status==='provisional')&&prev.days===7)?wkSigned(a.carry_in):'<span class="pace-none">pending</span>';
+    const st=w.status==='current'?`in progress &middot; ${w.days}/7 days`:w.status==='provisional'?`provisional &middot; locks ${fDay(w.lock_date)}`:w.status;
+    h+=`<tr class="${w.status==='current'?'wk-now':''}"><td>Wk ${w.wk}</td><td>${fDay(w.start)} &ndash; ${fDay(w.end)}</td><td>${fUSD(a.base)}</td><td>${carry}</td><td>${fUSD(a.ceiling)}</td><td>${a.spend==null?'&mdash;':fUSD(a.spend)}${wkLoc(m,a)}</td><td style="text-align:left;padding-left:18px">${w.days?wkUsed(a.spend,a.ceiling):'<span class="pace-none">&mdash;</span>'}</td><td>${a.left==null?'&mdash;':wkSigned(a.left)}</td><td><span class="wk-st ${w.status}">${st}</span></td></tr>`;});
+  h+=`</tbody></table></div><div class="pace-note">${WEEKLY.alloc_note||''} This market's leftover or overspend carries into its own next week. The ceiling is a cap, not a target. Spend converts to USD at each day's rate.</div>`;
+  return h;
+}
+
 function renderWeekly(tabs){
   if(!WEEKLY||!WEEKLY.weeks||!tabs.some(t=>t.startsWith('CC_')))return '';
   const W=WEEKLY.weeks, cur=W.find(w=>w.status==='current');
@@ -620,6 +657,7 @@ function renderWeekly(tabs){
       [cur.left<0?'crit':'ok','Left this week',cur.left<0?'&minus;'+fUSD(-cur.left):fUSD(cur.left),need!=null?`${fUSD(need)} / day for ${daysLeft} days`:'week complete'],
       [pct==null?'neutral':pct>100?'warn':'ok','Pace vs ceiling',pct==null?'&mdash;':pct.toFixed(0)+'%','spend &divide; ceiling to date'],
     ].map(([s,l,v,sub])=>`<div class="kpi ${s}"><div class="kpi-lbl">${l}</div><div class="kpi-val ${s==='crit'?'crit':s==='warn'?'warn':''}">${v}</div><div class="kpi-sub"><span class="sub-lbl">${sub}</span></div></div>`).join('')}</div>`;}
+  h+='<!--WKMKT-->';
   h+=`<div class="tbl-wrap"><table class="dt"><thead><tr><th>Week</th><th>Dates</th><th>NIC budget</th><th>Carried in</th><th>Ceiling</th><th>Spend</th><th style="text-align:left;padding-left:18px">Used</th><th>Left / over</th><th>Status</th></tr></thead><tbody>`;
   W.forEach((w,i)=>{const prev=W[i-1];
     const carry=i===0?'<span class="pace-none">in NIC figure</span>':(prev&&(prev.status==='locked'||prev.status==='provisional')&&prev.days===7)?wkSigned(w.carry_in):'<span class="pace-none">pending</span>';
@@ -630,9 +668,8 @@ function renderWeekly(tabs){
       +`<td>${w.days?wkSigned(w.left):'&mdash;'}</td><td><span class="wk-st ${w.status}">${st}</span></td></tr>`;});
   const sumB=W.reduce((s,w)=>s+w.base,0);
   h+=`<tr class="pace-total"><td>6 weeks</td><td>${fDay(W[0].start)} &ndash; ${fDay(W[W.length-1].end)}</td><td>${fUSD(sumB)}</td><td></td><td></td><td>${fUSD(W.reduce((s,w)=>s+(w.spend||0),0))}</td><td></td><td></td><td></td></tr></tbody></table></div>`;
-  const split=cur&&cur.days?cur:last;
-  if(split&&split.markets){const tot=split.spend||1;
-    h+=`<div class="pace-note" style="margin:-16px 0 8px">Wk ${split.wk} spend by market (USD): ${WK_ORDER.filter(m=>split.markets[m]).map(m=>`${MKT_META[m]?.label||m} ${fUSD(split.markets[m].usd)} (${(split.markets[m].usd/tot*100).toFixed(0)}%)`).join(' &middot; ')}${split.missing&&split.missing.length?` &middot; <span style="color:var(--amber)">not loaded yet: ${split.missing.map(m=>MKT_META[m]?.label||m).join(', ')}</span>`:''}</div>`;}
+  const split=cur||last;
+  if(split&&split.alloc)h=h.replace('<!--WKMKT-->',renderWeeklyMarkets(split,tabs));
   const end=W[W.length-1], nicDue=end&&new Date(end.start)<=new Date(WEEKLY.built);
   h+=`<div class="pace-note"${split&&split.markets?' style="margin-top:0"':''}>${nicDue?'<span style="color:var(--amber)">Last week of this schedule: ask NIC for the next six weeks. </span>':''}The ceiling is a cap, not a target. Ceiling = NIC's week amount + last week's leftover, or minus last week's overspend, in full. A finished week locks the Tuesday after it ends; until then its carryover is provisional (Thursday re-pulls settle attribution). Cerakote Auto only, every marketplace pooled, SP + SB + SD; Legacy, Prismatic and DSP are outside it. Non-USD spend converts at each day's rate (ECB via frankfurter.dev; weekends use Friday's). Spend: Scale Insights (SA: Helium10). Budget: ${WEEKLY.source||'NIC'}.${(WEEKLY.notes||[]).length?' '+WEEKLY.notes.join(' '):''}</div>`;
   return h;
@@ -679,7 +716,7 @@ function renderMktView(){
   const w=getActiveWeek(), d=getMktData(w,mktKey);
   const cur=getCur(mktKey);
   const prods=d.products||[];
-  let html=renderPacing([mktKey]);
+  let html=renderWeeklyMkt(mktKey)+renderPacing([mktKey]);
 
   if(prods.length){
     html+=`<div class="sec">Revenue & Advertising Mix</div><div class="three-col">
