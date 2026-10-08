@@ -1,0 +1,41 @@
+{
+ "issued": "2026-10-01",
+ "notes": [
+  "NIC's email describes spreading over/underspend equally across the next six weeks; this page uses Barcus's rule: carry it in full into the next week."
+ ],
+ "scope": "Cerakote Auto, all marketplaces, SP/SB/SD, USD",
+ "source": "Matt Reid (NIC) email 'Rolling 6 Week Budget', 2026-10-01",
+ "total": 293999.26,
+ "weeks": [
+  {
+   "base": 51194.94,
+   "start": "2026-09-28",
+   "wk": 39
+  },
+  {
+   "base": 54848.72,
+   "start": "2026-10-05",
+   "wk": 40
+  },
+  {
+   "base": 52205.95,
+   "start": "2026-10-12",
+   "wk": 41
+  },
+  {
+   "base": 46372.23,
+   "start": "2026-10-19",
+   "wk": 42
+  },
+  {
+   "base": 45554.13,
+   "start": "2026-10-26",
+   "wk": 43
+  },
+  {
+   "base": 43823.29,
+   "start": "2026-11-02",
+   "wk": 44
+  }
+ ]
+}

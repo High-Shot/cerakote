@@ -50,6 +50,16 @@ python3 scripts/changes.py counts $THROUGH US=<manual>:<auto> CA=<m>:<a> UK=... 
 Budget changes: filter the same call to budget changes; for each market that has any, save the tool result JSON and run `python3 scripts/changes.py budget <CC> <file>` (dedupes). Only changes made in Scale Insights show up; changes made in the Amazon console do not. The Sales trend charts draw a dashed "changes" line on weeks with a budget change, or with manual changes at 2x the median and 50+.
 Skip on failure; the charts just show no marker for that week.
 
+## 4c. Weekly budget (Cerakote Auto rolling 6-week bucket, `data/weekly/`)
+WEEKSTART = the Monday of the week before THROUGH's week (`date -d 'last sunday - 13 days' +%F`), so the finished week re-pulls on Thursday and settles before its Tuesday lock. Window = WEEKSTART through yesterday.
+- Scale Insights, US CA UK DE FR IT ES NL AU: `mcp__Scale_Insights__get_sales_data` with `country, start_date: WEEKSTART, end_date: yesterday, group_by: "day", summary_only: true, include_growth: false`. Save the result to a file and run `python3 scripts/weekly.py si-daily CC_<MKT> <file>` (AU = CC_AUS).
+- US only: the per-ASIN daily feed misses multi-ASIN SB/SD spend (~5% of US). For each week in the window (finished week, then current week to yesterday) call `get_campaign_performance` (`country: US, mode: raw, count: 1, sort_by: cost`) and run `python3 scripts/weekly.py campaign CC_US <start> <end> <agg.TotalSpend>`. The other markets match campaign totals to the cent (checked 2026-10-08); skip them.
+- SA: daily `advertising_cost` from the H10 cache (`query.py spend FROM TO CC_SA`, SAR) -> `python3 scripts/weekly.py day CC_SA <date>=<amt> ...`. Cache missing: leave it out; the page flags SA as not loaded.
+- FX: WebFetch `https://api.frankfurter.dev/v1/<WEEKSTART minus 3 days>..<today>?from=USD&to=CAD%2CGBP%2CEUR%2CAUD`, save the JSON, `python3 scripts/weekly.py fx <file>`.
+- `python3 scripts/weekly.py show` and put the current week's ceiling, spend and left into the summary line 2.
+- New schedule from NIC (Matt Reid emails it; search Gmail "Rolling 6 Week Budget"): write it as JSON (source, issued, total, weeks [{wk, start Monday, base}]) and `python3 scripts/weekly.py schedule <file>`. It replaces the old one; carryover restarts from its first week because NIC's figures already include prior weeks. When the page says "last week of this schedule", flag it in the summary.
+Skip on failure; the section keeps the last loaded spend and says "spend through <date>".
+
 ## 5. Build
 ```
 python3 scripts/build.py --nic ../NIC --intl ../INTL
