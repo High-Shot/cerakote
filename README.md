@@ -14,7 +14,6 @@ This repo only renders. The NIC and INTL repos stay the data pipelines and keep 
 pages/            page templates (sales.html, health.html, inventory_body.html + inventory_app.js, logo.svg)
 scripts/build.py  NIC + INTL data -> sales/, health/, inventory/ (shared header, nav and styles injected here)
 scripts/pacing.py writes data/budgets/<month>.json and data/pacing/<month>.json
-scripts/weekly.py Cerakote Auto rolling 6-week budget: data/weekly/schedule.json (NIC) + spend.json (daily, local currency, daily FX)
 RUNBOOK.md        the Monday/Thursday 08:45 CT refresh
 ```
 

@@ -152,15 +152,11 @@ def build_sales():
     stock = build_stock_links(files)
     changes = json.load(open(os.path.join(ROOT, 'data', 'changes.json'))) if os.path.exists(os.path.join(ROOT, 'data', 'changes.json')) else {}
 
-    sys.path.insert(0, os.path.join(ROOT, 'scripts'))
-    import weekly
-    wk = weekly.compute()  # Cerakote Auto rolling 6-week budget (data/weekly/)
     tpl = read(os.path.join(ROOT, 'pages', 'sales.html'))
     tpl = add_css(swap_header(tpl, shell_header('sales')))
     html = (tpl.replace('/*__MKT_META__*/', js(meta)).replace('/*__MKT_KEYS__*/', js(mkeys)).replace('/*__FX__*/', js(fx))
             .replace('/*__WEEKS__*/', js(weeks)).replace('/*__PACING__*/', js(pacing)).replace('/*__NTB_MKTS__*/', js(ntb_markets))
-            .replace('/*__PERIODS__*/', js(periods)).replace('/*__STOCK__*/', js(stock)).replace('/*__CHANGES__*/', js(changes))
-            .replace('/*__WEEKLY__*/', js(wk)))
+            .replace('/*__PERIODS__*/', js(periods)).replace('/*__STOCK__*/', js(stock)).replace('/*__CHANGES__*/', js(changes)))
     write(os.path.join(ROOT, 'sales', 'index.html'), html)
 
 
