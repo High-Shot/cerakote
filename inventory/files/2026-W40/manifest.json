@@ -1,6 +1,6 @@
 {
  "week": "2026-W40",
- "as_of": "2026-10-08",
+ "as_of": "2026-10-09",
  "review": "Q4_ship_plan_2026-W40.xlsx",
  "files": [
   {
@@ -9,7 +9,7 @@
    "file": "STA_US_AUTO_2026-W40.xlsx",
    "where": "Cerakote Auto, Amazon.com",
    "skus": 26,
-   "units": 100035,
+   "units": 98787,
    "no_case_pack": 13
   },
   {
@@ -18,7 +18,7 @@
    "file": "STA_CA_AUTO_2026-W40.xlsx",
    "where": "Cerakote Auto, Amazon.ca",
    "skus": 9,
-   "units": 3956,
+   "units": 3780,
    "no_case_pack": 9
   },
   {
@@ -27,7 +27,7 @@
    "file": "STA_UK_AUTO_2026-W40.xlsx",
    "where": "Cerakote Auto, Amazon.co.uk",
    "skus": 7,
-   "units": 14816,
+   "units": 14748,
    "no_case_pack": 7
   },
   {
@@ -36,7 +36,7 @@
    "file": "STA_EU_AUTO_2026-W40.xlsx",
    "where": "Cerakote Auto EU, the marketplace you normally inbound EU pool stock to",
    "skus": 4,
-   "units": 4125,
+   "units": 4108,
    "no_case_pack": 4
   },
   {
@@ -45,7 +45,7 @@
    "file": "STA_DE_AUTO_2026-W40.xlsx",
    "where": "Cerakote Auto, Amazon.de",
    "skus": 2,
-   "units": 352,
+   "units": 345,
    "no_case_pack": 2
   },
   {
@@ -54,7 +54,7 @@
    "file": "STA_FR_AUTO_2026-W40.xlsx",
    "where": "Cerakote Auto, Amazon.fr",
    "skus": 1,
-   "units": 227,
+   "units": 219,
    "no_case_pack": 1
   },
   {
@@ -63,7 +63,7 @@
    "file": "STA_IT_AUTO_2026-W40.xlsx",
    "where": "Cerakote Auto, Amazon.it",
    "skus": 1,
-   "units": 20,
+   "units": 19,
    "no_case_pack": 1
   },
   {
@@ -72,7 +72,7 @@
    "file": "STA_ES_AUTO_2026-W40.xlsx",
    "where": "Cerakote Auto, Amazon.es",
    "skus": 1,
-   "units": 54,
+   "units": 53,
    "no_case_pack": 1
   },
   {
@@ -81,7 +81,7 @@
    "file": "STA_SA_AUTO_2026-W40.xlsx",
    "where": "Cerakote Auto, Amazon.sa",
    "skus": 7,
-   "units": 843,
+   "units": 837,
    "no_case_pack": 7
   },
   {
@@ -90,7 +90,7 @@
    "file": "STA_AU_AUTO_2026-W40.xlsx",
    "where": "Cerakote Auto, Amazon.com.au",
    "skus": 9,
-   "units": 4910,
+   "units": 4889,
    "no_case_pack": 9
   },
   {
@@ -99,7 +99,7 @@
    "file": "STA_US_LEGACY_2026-W40.xlsx",
    "where": "Cerakote Legacy, Amazon.com",
    "skus": 39,
-   "units": 936,
+   "units": 933,
    "no_case_pack": 39
   },
   {
@@ -108,7 +108,7 @@
    "file": "STA_US_PRIS_2026-W40.xlsx",
    "where": "Prismatic Powders, Amazon.com",
    "skus": 28,
-   "units": 2103,
+   "units": 2109,
    "no_case_pack": 28
   }
  ]
